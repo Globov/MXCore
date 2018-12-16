@@ -1,0 +1,87 @@
+<?php
+// MIT License
+//
+// Copyright (c) 2018 MXCCoin
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+//
+
+class Transaction {
+    public $hash;
+    public $from;
+    public $to;
+    public $amount;
+    public $signature;
+    public $timestamp;
+
+    /**
+     * Transaction constructor.
+     * @param $from
+     * @param $to
+     * @param $amount
+     * @param $privKey
+     * @param string $password
+     * @param bool $signed
+     * @param null $hash
+     * @param null $signature
+     * @param null $timestamp
+     */
+    public function __construct($from,$to,$amount,$privKey,$password="",$signed=false,$hash=null,$signature=null,$timestamp=null)
+    {
+
+        $this->from = $from;
+        $this->to = $to;
+        $this->amount = $amount;
+
+        if ($signed) {
+            $this->hash = $hash;
+            $this->signature = $signature;
+            $this->timestamp = $timestamp;
+        } else {
+            //Guardamos el tiempo en el que se crea la transaccion
+            $date = new DateTime();
+            $this->timestamp = $date->getTimestamp();
+            if ($sign = Pki::encrypt($this->message(), $privKey,$password)) {
+                $this->signature = $sign;
+                $this->hash = $this->message();
+            } else {
+                $this->signature = "unknown";
+            }
+        }
+    }
+
+    /**
+     * Get hash transaction
+     *
+     * @return string
+     */
+    public function message() {
+        return PoW::hash($this->from.$this->to.$this->amount.$this->timestamp);
+    }
+
+    /**
+     * Check if transaction is valid
+     *
+     * @return bool
+     */
+    public function isValid() {
+        return !$this->from || Pki::isValid($this->message(), $this->signature, $this->from);
+    }
+}
+?>
