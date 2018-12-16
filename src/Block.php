@@ -74,7 +74,7 @@ class Block {
                 'max_difficulty' => '00000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',
                 'num_blocks_to_change_difficulty' => '2016',
                 'num_blocks_to_halving' => '250000',
-                'time_expected_to_mine' => '1440'
+                'time_expected_to_mine' => '20160'
             );
 
             $date = new DateTime();
