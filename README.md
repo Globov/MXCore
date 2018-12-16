@@ -1,5 +1,6 @@
 # MXCore
 PHP cryptocurrency
+PoW sha256
 
 # Requisites
 
