@@ -30,6 +30,7 @@ include('../src/Display.php');
 include('../src/Wallet.php');
 include('../src/Block.php');
 include('../src/Blockchain.php');
+include('../src/BootstrapNode.php');
 include('../src/Gossip.php');
 include('../src/Key.php');
 include('../src/Pki.php');

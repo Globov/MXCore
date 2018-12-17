@@ -93,24 +93,39 @@ class Wallet {
         $chaindata = new DB();
 
         //Obtenemos lo que ha recibido el usuario en esta cartera
-        $totalReceived = $chaindata->db->querySingle("SELECT sum(amount) as TotalReceived FROM transactions WHERE wallet_to = '".$address."';");
+        $totalReceived = "0";
+        $totalSpend = "0";
+
+        $totalReceived_tmp = $chaindata->db->query("SELECT amount FROM transactions WHERE wallet_to = '".$address."';");
+        if (!empty($totalReceived_tmp)) {
+            while ($txnInfo = $totalReceived_tmp->fetchArray(SQLITE3_ASSOC)) {
+                $totalReceived = bcadd($totalReceived, $txnInfo['amount'], 8);
+            }
+        }
 
         //Obtenemos lo que ha gastado el usuario (pendiente o no de tramitar)
-        $totalSpended = $chaindata->db->querySingle("SELECT sum(amount) as TotalSpended FROM transactions WHERE wallet_from = '".$address."';");
-        $totalSpendedPending = $chaindata->db->querySingle("SELECT sum(amount) as TotalSpended FROM transactions_pending WHERE wallet_from = '".$address."';");
-        $totalSpendedPendingToSend = $chaindata->db->querySingle("SELECT sum(amount) as TotalSpended FROM transactions_pending_to_send WHERE wallet_from = '".$address."';");
+        $totalSpended_tmp = $chaindata->db->query("SELECT amount FROM transactions WHERE wallet_from = '".$address."';");
+        if (!empty($totalSpended_tmp)) {
+            while ($txnInfo = $totalSpended_tmp->fetchArray(SQLITE3_ASSOC)) {
+                $totalSpend = bcadd($totalSpend, $txnInfo['amount'], 8);
+            }
+        }
 
+        $totalSpendedPending_tmp = $chaindata->db->query("SELECT amount FROM transactions_pending WHERE wallet_from = '".$address."';");
+        if (!empty($totalSpendedPending_tmp)) {
+            while ($txnInfo = $totalSpendedPending_tmp->fetchArray(SQLITE3_ASSOC)) {
+                $totalSpend = bcadd($totalSpend, $txnInfo['amount'], 8);
+            }
+        }
 
-        //Sumamos todo lo que el usuario ha gastado (pendiente de enviar o ya enviado)
-        $total_spended = 0;
-        if ($totalSpended != null)
-            $total_spended += $totalSpended;
-        if ($totalSpendedPending != null)
-            $total_spended += $totalSpendedPending;
-        if ($totalSpendedPendingToSend != null)
-            $total_spended += $totalSpendedPendingToSend;
+        $totalSpendedPendingToSend_tmp = $chaindata->db->query("SELECT amount FROM transactions_pending_to_send WHERE wallet_from = '".$address."';");
+        if (!empty($totalSpendedPendingToSend_tmp)) {
+            while ($txnInfo = $totalSpendedPendingToSend_tmp->fetchArray(SQLITE3_ASSOC)) {
+                $totalSpend = bcadd($totalSpend, $txnInfo['amount'], 8);
+            }
+        }
 
-        return $totalReceived - $total_spended;
+        return bcsub($totalReceived,$totalSpend,8);
     }
 
     /**
@@ -149,14 +164,27 @@ class Wallet {
      */
     public static function SendTransaction($wallet_from,$wallet_from_password,$wallet_to,$amount,$tx_fee) {
 
-        if ($tx_fee == 3 && $amount < 0.00014000)
-            return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." There is not enough balance in the account".PHP_EOL;
+        //Instance the pointer to the chaindata
+        $chaindata = new DB();
 
-        if ($tx_fee == 2 && $amount < 0.00009000)
-            return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." There is not enough balance in the account".PHP_EOL;
+        //Comprobamos si estamos sincronizados o no
+        $lastBlockNum = BootstrapNode::GetLastBlockNum($chaindata);
+        $lastBlockNum_Local = $chaindata->GetNextBlockNum();
 
-        if ($tx_fee == 1 && $amount < 0.00000250)
-            return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." There is not enough balance in the account".PHP_EOL;
+        if ($lastBlockNum != $lastBlockNum_Local)
+            return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." Blockchain it is not synchronized".PHP_EOL;
+
+        if (bccomp($amount ,"0.00000001",8) == -1)
+            return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." Minium to send 0.00000001".PHP_EOL;
+
+        if ($tx_fee == 3 && bccomp($amount ,"0.00014000",8) == -1)
+            return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." There is not enough balance in the account 1".PHP_EOL;
+
+        if ($tx_fee == 2 && bccomp($amount ,"0.00009000",8) == -1)
+            return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." There is not enough balance in the account 2".PHP_EOL;
+
+        if ($tx_fee == 1 && bccomp($amount ,"0.00000250",8) == -1)
+            return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." There is not enough balance in the account 3".PHP_EOL;
 
         if ($wallet_from == "coinbase") {
             $wallet_from_info = self::GetCoinbase();
@@ -174,8 +202,7 @@ class Wallet {
             $currentBalance = self::GetBalance($wallet_from);
 
             // If have balance
-            if ($currentBalance >= $amount) {
-
+            if (bccomp($currentBalance,$amount,8) == 0 || bccomp($currentBalance,$amount,8) == 1) {
                 if ($tx_fee == 3)
                     $amount = bcsub($amount,"0.00001400",8);
                 else if ($tx_fee == 2)

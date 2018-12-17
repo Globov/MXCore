@@ -161,24 +161,43 @@ class DB {
      * @return array
      */
     public function GetWalletInfo($wallet) {
-        $totalSended = $this->db->querySingle("SELECT sum(T.amount) as TotalSend FROM transactions as T WHERE T.wallet_from = '".$wallet."';");
-        $totalReceived = $this->db->querySingle("SELECT sum(T.amount) as TotalReceived FROM transactions as T WHERE T.wallet_to = '".$wallet."';");
 
-        if ($totalSended == null)
-            $totalSended = 0;
+        $totalReceived = "0";
+        $totalSpend = "0";
 
-        if ($totalReceived == null)
-            $totalReceived = 0;
+        $totalReceived_tmp = $this->db->query("SELECT amount FROM transactions WHERE wallet_to = '".$wallet."';");
+        if (!empty($totalReceived_tmp)) {
+            while ($txnInfo = $totalReceived_tmp->fetchArray(SQLITE3_ASSOC)) {
+                $totalReceived = bcadd($totalReceived, $txnInfo['amount'], 8);
+            }
+        }
 
-        //By default, we have what we have received
-        $current = $totalReceived;
+        //Obtenemos lo que ha gastado el usuario (pendiente o no de tramitar)
+        $totalSpended_tmp = $this->db->query("SELECT amount FROM transactions WHERE wallet_from = '".$wallet."';");
+        if (!empty($totalSpended_tmp)) {
+            while ($txnInfo = $totalSpended_tmp->fetchArray(SQLITE3_ASSOC)) {
+                $totalSpend = bcadd($totalSpend, $txnInfo['amount'], 8);
+            }
+        }
 
-        //If we have sent something, we subtract it
-        if ($totalSended > 0)
-            $current = $totalReceived - $totalSended;
+        $totalSpendedPending_tmp = $this->db->query("SELECT amount FROM transactions_pending WHERE wallet_from = '".$wallet."';");
+        if (!empty($totalSpendedPending_tmp)) {
+            while ($txnInfo = $totalSpendedPending_tmp->fetchArray(SQLITE3_ASSOC)) {
+                $totalSpend = bcadd($totalSpend, $txnInfo['amount'], 8);
+            }
+        }
+
+        $totalSpendedPendingToSend_tmp = $this->db->query("SELECT amount FROM transactions_pending_to_send WHERE wallet_from = '".$wallet."';");
+        if (!empty($totalSpendedPendingToSend_tmp)) {
+            while ($txnInfo = $totalSpendedPendingToSend_tmp->fetchArray(SQLITE3_ASSOC)) {
+                $totalSpend = bcadd($totalSpend, $txnInfo['amount'], 8);
+            }
+        }
+
+        $current = bcsub($totalReceived,$totalSpend,8);
 
         return array(
-            'sended' => $totalSended,
+            'sended' => $totalSpend,
             'received' => $totalReceived,
             'current' => $current
         );
