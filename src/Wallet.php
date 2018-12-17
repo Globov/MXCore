@@ -176,6 +176,13 @@ class Wallet {
             // If have balance
             if ($currentBalance >= $amount) {
 
+                if ($tx_fee == 3)
+                    $amount = bcsub($amount,"0.00001400",8);
+                else if ($tx_fee == 2)
+                    $amount = bcsub($amount,"0.00000900",8);
+                else if ($tx_fee == 1)
+                    $amount = bcsub($amount,"0.00000250",8);
+
                 //Make transaction and sign
                 $transaction = new Transaction($wallet_from_info["public"],$wallet_to,$amount,$wallet_from_info["private"],$wallet_from_password,$tx_fee);
 

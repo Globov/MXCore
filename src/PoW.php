@@ -46,12 +46,17 @@ class PoW {
         $chaindata = new DB();
 
         if ($blockchain->count() == 0)
-            $max_difficulty = "00000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
+            $max_difficulty = "0000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
         else
             $max_difficulty = $blockchain->blocks[0]->info['max_difficulty'];
 
         $nonce = 0;
         while(!self::isValidNonce($message,$nonce,$difficulty,$max_difficulty)) {
+
+            /*
+            if ($nonce > 0 && $nonce % 10000 == 0)
+                Display::_printer("Tried " . $nonce . " hashes");
+            */
 
             //We check if we have a mined block that refers to the previous_hash
             $peerMinedBlock = $chaindata->GetPeersMinedBlockByPrevious($previous_hash);

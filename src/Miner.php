@@ -38,18 +38,21 @@ class Miner {
         //We calculate the commissions of the pending transactions
         $total_amount_to_miner = "0";
         foreach ($transactions_pending as $txn) {
-            if ($txn['tx_fee'] == 3)
-                $total_amount_to_miner = bcadd($total_amount_to_miner,"0.00001400",8);
-            else if ($txn['tx_fee'] == 2)
-                $total_amount_to_miner = bcadd($total_amount_to_miner,"0.00000900",8);
-            else if ($txn['tx_fee'] == 1)
-                $total_amount_to_miner = bcadd($total_amount_to_miner,"0.00000250",8);
+            $new_txn = new Transaction($txn['wallet_from_key'],$txn['wallet_to'], $txn['amount'], null,null, $txn['tx_fee'],true, $txn['txn_hash'], $txn['signature'], $txn['timestamp']);
+            if ($new_txn->isValid()) {
+                if ($txn['tx_fee'] == 3)
+                    $total_amount_to_miner = bcadd($total_amount_to_miner,"0.00001400",8);
+                else if ($txn['tx_fee'] == 2)
+                    $total_amount_to_miner = bcadd($total_amount_to_miner,"0.00000900",8);
+                else if ($txn['tx_fee'] == 1)
+                    $total_amount_to_miner = bcadd($total_amount_to_miner,"0.00000250",8);
+            }
         }
 
         //TODO - Implement halving system
         $total_amount_to_miner = bcadd($total_amount_to_miner,"50",8);
 
-        //We created the mining transaction + fee
+        //We created the mining reward txn + fees txns
         $tx = new Transaction(null,$gossip->coinbase, $total_amount_to_miner, $gossip->key->privKey,"","");
 
         //We take all pending transactions
@@ -57,23 +60,12 @@ class Miner {
 
         //We add the transactions to the blockchain to generate the block
         foreach ($transactions_pending as $txn) {
-
-            //We subtract the commission of the transfer
-            $amount = $txn['amount'];
-
-            if ($txn['tx_fee'] == 3)
-                $amount = bcsub("".$amount,"0.00001400",8);
-            else if ($txn['tx_fee'] == 2)
-                $amount = bcsub("".$amount,"0.00000900",8);
-            else if ($txn['tx_fee'] == 1)
-                $amount = bcsub("".$amount,"0.00000250",8);
-
-            //Transactions can not have negative value
-            if ($amount < 0)
-                $amount = 0;
-
-            $transactions[] = new Transaction($txn['wallet_from_key'],$txn['wallet_to'], $amount, null,null, $txn['tx_fee'],true, $txn['txn_hash'], $txn['signature'], $txn['timestamp']);
+            $new_txn = new Transaction($txn['wallet_from_key'],$txn['wallet_to'], $txn['amount'], null,null, $txn['tx_fee'],true, $txn['txn_hash'], $txn['signature'], $txn['timestamp']);
+            if ($new_txn->isValid())
+                $transactions[] = $new_txn;
         }
+
+        Display::_printer("Start minning block with " . count($transactions) . " txns");
 
         //We create the new block with the hash of the previous block, the pending transactions, pointer to the blockchain
         $blockMined = new Block($gossip->state->blockchain->blocks[count($gossip->state->blockchain->blocks)-1],$gossip->state->blockchain->difficulty,$transactions,$gossip->state->blockchain);
@@ -82,32 +74,40 @@ class Miner {
 
         //We validate that the mined block is valid
         if (strlen($blockMined->hash) > 0 && $blockMined->isValid()) {
+
             //We warn the network that we have mined this block
             $gossip->sendBlockMinedToNetwork($blockMined);
 
-            //We add the block to the blockchain and it will return us if the difficulty has been modified
-            $changedDifficulty = $gossip->state->blockchain->add($blockMined);
+            //Check if other miner has mined this block
+            $last_hash_block = $gossip->state->blockchain->GetLastBlock()->hash;
+            $peerMinedBlock = $gossip->chaindata->GetPeersMinedBlockByPrevious($last_hash_block);
 
-            //We get the number of the last block
-            $numBlock = $gossip->chaindata->GetNextBlockNum();
+            //If haven't peer mined block
+            if (!is_array($peerMinedBlock)) {
+                //We add the block to the blockchain and it will return us if the difficulty has been modified
+                $changedDifficulty = $gossip->state->blockchain->add($blockMined);
 
-            //We add the block to the chaindata (DB)
-            if ($gossip->chaindata->addBlock($numBlock,$blockMined)) {
+                //We get the number of the last block
+                $numBlock = $gossip->chaindata->GetNextBlockNum();
 
-                //TODO REVISAR SISTEMA DIDIFUCLTAD
-                /*
-                //Si se ha modificado la dificultad, actualizamos el conteo en la chaindata
-                if ($changedDifficulty) {
-                    if ($gossip->chaindata->DifficultyReset())
-                        return true;
-                */
-                return true;
-                //No se ha modificado la dificultad, asi que incrementamos el conteo en la chaindata
-                /*
-                } else {
+                //We add the block to the chaindata (DB)
+                if ($gossip->chaindata->addBlock($numBlock,$blockMined)) {
+
+                    //TODO REVISAR SISTEMA DIDIFUCLTAD
+                    /*
+                    //Si se ha modificado la dificultad, actualizamos el conteo en la chaindata
+                    if ($changedDifficulty) {
+                        if ($gossip->chaindata->DifficultyReset())
+                            return true;
+                    */
                     return true;
+                    //No se ha modificado la dificultad, asi que incrementamos el conteo en la chaindata
+                    /*
+                    } else {
+                        return true;
+                    }
+                    */
                 }
-                */
             }
         }
         return false;

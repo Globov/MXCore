@@ -78,8 +78,8 @@ if (count($argv) > 1) {
         $p2p = false;
 
     $gossip = new Gossip($arguments['user'],$arguments['ip'],$arguments['port'], $enable_mine, $make_genesis, $bootstrap_node, $p2p);
-    if (isset($arguments['peerip']) && isset($arguments['peerport'])) {
-        $gossip->_addPeer($arguments['peerip'],$arguments['peerport']);
+    if (isset($arguments['peer-ip']) && isset($arguments['peer-port'])) {
+        $gossip->_addPeer($arguments['peer-ip'],$arguments['peer-port']);
     }
 
     //Ejecutamos el Loop del Gossip

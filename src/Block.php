@@ -71,7 +71,7 @@ class Block {
             $this->info = array(
                 'current_blocks_difficulty' => $blockchain->blocks_count_reset+1,
                 'current_blocks_halving' => $blockchain->blocks_count_halving+1,
-                'max_difficulty' => '00000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',
+                'max_difficulty' => '0000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',
                 'num_blocks_to_change_difficulty' => 2016,
                 'num_blocks_to_halving' => 250000,
                 'time_expected_to_mine' => 20160

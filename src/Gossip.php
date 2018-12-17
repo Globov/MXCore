@@ -481,57 +481,58 @@ class Gossip {
                             $this->state->blockchain->blocks_count_reset = $blockMinedByPeer->info['current_blocks_difficulty'];
                             $this->state->blockchain->blocks_count_halving = $blockMinedByPeer->info['current_blocks_halving'];
                         }
-                    } else {
-                        //We check if there are new blocks to be added and that they are next to the last block of the blockchain
-                        $last_hash_block = $this->state->blockchain->GetLastBlock()->hash;
-                        $peerMinedBlock = $this->chaindata->GetPeersMinedBlockByPrevious($last_hash_block);
+                    }
 
-                        if (is_array($peerMinedBlock) && !empty($peerMinedBlock)) {
-                            $blockMinedByPeer = Tools::objectToObject(@unserialize($peerMinedBlock['block']),"Block");
+                    //We check if there are new blocks to be added and that they are next to the last block of the blockchain
+                    $last_hash_block = $this->state->blockchain->GetLastBlock()->hash;
+                    $peerMinedBlock = $this->chaindata->GetPeersMinedBlockByPrevious($last_hash_block);
 
-                            //We obtain the block number to be entered and the block information
-                            $numBlock = $this->chaindata->GetNextBlockNum();
+                    if (is_array($peerMinedBlock) && !empty($peerMinedBlock)) {
+                        $blockMinedByPeer = Tools::objectToObject(@unserialize($peerMinedBlock['block']),"Block");
 
-                            $mini_hash = substr($blockMinedByPeer->hash,-12);
-                            $mini_hash_previous = substr($blockMinedByPeer->previous,-12);
+                        //We obtain the block number to be entered and the block information
+                        $numBlock = $this->chaindata->GetNextBlockNum();
 
-                            //We obtain the difference between the creation of the block and the completion of the mining
-                            $minedTime = date_diff(
-                                date_create(date('Y-m-d H:i:s', $blockMinedByPeer->timestamp)),
-                                date_create(date('Y-m-d H:i:s', $blockMinedByPeer->timestamp_end))
-                            );
-                            $blockMinedInSeconds = $minedTime->format('%im%ss');
+                        $mini_hash = substr($blockMinedByPeer->hash,-12);
+                        $mini_hash_previous = substr($blockMinedByPeer->previous,-12);
 
-                            //If the previous block received by network refer to the last block of my blockchain
-                            if ($blockMinedByPeer->previous == $last_hash_block) {
+                        //We obtain the difference between the creation of the block and the completion of the mining
+                        $minedTime = date_diff(
+                            date_create(date('Y-m-d H:i:s', $blockMinedByPeer->timestamp)),
+                            date_create(date('Y-m-d H:i:s', $blockMinedByPeer->timestamp_end))
+                        );
+                        $blockMinedInSeconds = $minedTime->format('%im%ss');
 
-                                //If the block is valid
-                                if ($blockMinedByPeer->isValid()) {
+                        //If the previous block received by network refer to the last block of my blockchain
+                        if ($blockMinedByPeer->previous == $last_hash_block) {
 
-                                    //The block mined by the peer is valid
-                                    $this->chaindata->RemovePeerMinedBlockByPrevious($last_hash_block);
+                            //If the block is valid
+                            if ($blockMinedByPeer->isValid()) {
 
-                                    //We add the block to the chaindata and the blockchain
-                                    $this->chaindata->addBlock($numBlock,$blockMinedByPeer);
-                                    $this->state->blockchain->addSync($numBlock,$blockMinedByPeer);
+                                //The block mined by the peer is valid
+                                $this->chaindata->RemovePeerMinedBlockByPrevious($last_hash_block);
 
-                                    //We load the information of the difficulty and counting of blocks with the information of the mined block
-                                    $this->state->blockchain->difficulty = $blockMinedByPeer->difficulty;
-                                    $this->state->blockchain->blocks_count_reset = $blockMinedByPeer->info['current_blocks_difficulty'];
-                                    $this->state->blockchain->blocks_count_halving = $blockMinedByPeer->info['current_blocks_halving'];
+                                //We add the block to the chaindata and the blockchain
+                                $this->chaindata->addBlock($numBlock,$blockMinedByPeer);
+                                $this->state->blockchain->addSync($numBlock,$blockMinedByPeer);
 
-                                    //We send the mined block to all connected peers
-                                    $this->sendBlockMinedToNetwork($blockMinedByPeer);
+                                //We load the information of the difficulty and counting of blocks with the information of the mined block
+                                $this->state->blockchain->difficulty = $blockMinedByPeer->difficulty;
+                                $this->state->blockchain->blocks_count_reset = $blockMinedByPeer->info['current_blocks_difficulty'];
+                                $this->state->blockchain->blocks_count_halving = $blockMinedByPeer->info['current_blocks_halving'];
 
-                                    Display::_printer("%Y%Imported%W% new block headers               %G%nonce%W%=".$blockMinedByPeer->nonce."   %G%elapsed%W%=".$blockMinedInSeconds."   %G%number%W%=".$numBlock."   %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash);
-                                } else {
-                                    Display::_printer("%LR%Ignored%W% new block headers               %G%reason%W%=NoVaid     %G%nonce%W%=".$blockMinedByPeer->nonce."   %G%elapsed%W%=".$blockMinedInSeconds."   %G%number%W%=".$numBlock."   %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash);
-                                }
+                                //We send the mined block to all connected peers
+                                $this->sendBlockMinedToNetwork($blockMinedByPeer);
+
+                                Display::_printer("%Y%Imported%W% new block headers               %G%nonce%W%=".$blockMinedByPeer->nonce."   %G%elapsed%W%=".$blockMinedInSeconds."   %G%number%W%=".$numBlock."   %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash);
                             } else {
-                                Display::_printer("%LR%Ignored%W% new block headers               %G%reason%W%=NoPreviusHashCheck     %G%nonce%W%=".$blockMinedByPeer->nonce."   %G%elapsed%W%=".$blockMinedInSeconds."   %G%number%W%=".$numBlock."   %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash);
+                                Display::_printer("%LR%Ignored%W% new block headers               %G%reason%W%=NoValid     %G%nonce%W%=".$blockMinedByPeer->nonce."   %G%elapsed%W%=".$blockMinedInSeconds."   %G%number%W%=".$numBlock."   %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash);
                             }
+                        } else {
+                            Display::_printer("%LR%Ignored%W% new block headers               %G%reason%W%=NoPreviousHashCheck     %G%nonce%W%=".$blockMinedByPeer->nonce."   %G%elapsed%W%=".$blockMinedInSeconds."   %G%number%W%=".$numBlock."   %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash);
                         }
                     }
+
                 }
 
                 //If we are synchronizing and we are connected with the bootstrap
