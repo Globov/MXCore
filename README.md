@@ -28,22 +28,23 @@ https://blockchain.mataxetos.es/
 - Clone repository on root website folder
 - Navigate into bin folder
 - Edit apache2.conf and change:
-
+```
     <Directory /var/www/>
-    
     ...
-    
     AllowOverride None -> AllowOverride All
-    
     ...
-    
     </Directory>
+```
 
 For miner node:
-  - ./node_miner.sh
+```
+./node_miner.sh
+```
 
 For viewer node:
-  - ./node_viewer.sh
+```
+./node_viewer.sh
+```
   
 # Discord server
 https://discord.gg/WNhJZuQ
