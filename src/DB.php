@@ -249,6 +249,26 @@ class DB {
     }
 
     /**
+     * Add a pending transaction to the chaindata
+     *
+     * @param $ip
+     * @param $port
+     * @return bool
+     */
+    public function addPendingTransactionByBootstrap($transaction) {
+        if (isset($transaction->txn_hash) && strlen($transaction->txn_hash) > 0) {
+            $into_tx_pending = $this->db->querySingle("SELECT txn_hash FROM transactions_pending WHERE txn_hash = '".$transaction->txn_hash."';",true);
+            if (empty($into_tx_pending)) {
+                $sql_update_transactions = "INSERT INTO transactions_pending (block_hash, txn_hash, wallet_from_key, wallet_from, wallet_to, amount, signature, tx_fee, timestamp) 
+                    VALUES ('','".$transaction->txn_hash."','".$transaction->wallet_from_key."','".$transaction->wallet_from."','".$transaction->wallet_to."','".$transaction->amount."','".$transaction->signature."','".$transaction->tx_fee."','".$transaction->timestamp."');";
+                if ($this->db->exec($sql_update_transactions)) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    /**
      * Return array with all pending transactions
      *
      * @return array
@@ -257,8 +277,9 @@ class DB {
         $txs = array();
         $txs_chaindata = $this->db->query("SELECT * FROM transactions_pending ORDER BY tx_fee ASC LIMIT 512");
         if (!empty($txs_chaindata)) {
-            while ($tx_chaindata = $txs_chaindata->fetchArray()) {
-                $txs[] = $tx_chaindata;
+            while ($tx_chaindata = $txs_chaindata->fetchArray(SQLITE3_ASSOC)) {
+                if ($tx_chaindata['txn_hash'] != null && strlen($tx_chaindata['txn_hash']) > 0)
+                    $txs[] = $tx_chaindata;
             }
         }
         return $txs;
@@ -336,7 +357,7 @@ class DB {
         $txs = array();
         $txs_chaindata = $this->db->query("SELECT * FROM transactions_pending_to_send");
         if (!empty($txs_chaindata)) {
-            while ($tx_chaindata = $txs_chaindata->fetchArray()) {
+            while ($tx_chaindata = $txs_chaindata->fetchArray(SQLITE3_ASSOC)) {
                 $txs[] = $tx_chaindata;
             }
         }
@@ -369,7 +390,7 @@ class DB {
         $peers = array();
         $peers_chaindata = $this->db->query("SELECT * FROM peers");
         if (!empty($peers_chaindata)) {
-            while ($peer = $peers_chaindata->fetchArray()) {
+            while ($peer = $peers_chaindata->fetchArray(SQLITE3_ASSOC)) {
                 $ip = str_replace("\r","",$peer['ip']);
                 $ip = str_replace("\n","",$ip);
 
@@ -395,7 +416,7 @@ class DB {
         $peers = array();
         $peers_chaindata = $this->db->query("SELECT * FROM peers LIMIT 25");
         if (!empty($peers_chaindata)) {
-            while ($peer = $peers_chaindata->fetchArray()) {
+            while ($peer = $peers_chaindata->fetchArray(SQLITE3_ASSOC)) {
                 $infoPeer = array(
                     'ip' => $peer['ip'],
                     'port' => $peer['port']

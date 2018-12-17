@@ -107,6 +107,7 @@ class PoW {
             //We increased the nonce to continue in the search to solve the problem
             ++$nonce;
         }
+
         $chaindata->db->close();
         return $nonce;
     }
@@ -125,6 +126,8 @@ class PoW {
         $hashValue = Tools::hex2dec(strtoupper($hash));
 
         $result = bccomp($targetHash,$hashValue);
+
+        //Display::_printer('Hash num: '.$nonce.': '.strtoupper($hash));
 
         if ($result === 1 || $result === 0) {
             return true;

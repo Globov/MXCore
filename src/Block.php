@@ -110,7 +110,6 @@ class Block {
         //We prepare the transactions that will go in the block
         $data = "";
         if (is_array($this->transactions) && !empty($this->transactions)) {
-
             //We go through all the transactions and add them to the block to be mined
             foreach ($this->transactions as $transaction) {
                 $data = $transaction->message();

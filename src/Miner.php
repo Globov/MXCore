@@ -36,19 +36,21 @@ class Miner {
         $transactions_pending = $gossip->chaindata->GetAllPendingTransactions();
 
         //We calculate the commissions of the pending transactions
-        $total_fee = 0;
+        $total_amount_to_miner = "0";
         foreach ($transactions_pending as $txn) {
             if ($txn['tx_fee'] == 3)
-                $total_fee += 0.00014000;
+                $total_amount_to_miner = bcadd($total_amount_to_miner,"0.00001400",8);
             else if ($txn['tx_fee'] == 2)
-                $total_fee += 0.00009000;
+                $total_amount_to_miner = bcadd($total_amount_to_miner,"0.00000900",8);
             else if ($txn['tx_fee'] == 1)
-                $total_fee += 0.00000250;
+                $total_amount_to_miner = bcadd($total_amount_to_miner,"0.00000250",8);
         }
 
-        //We created the mining transaction + fee
         //TODO - Implement halving system
-        $tx = new Transaction(null,$gossip->coinbase, 50 + $total_fee, $gossip->key->privKey,"","");
+        $total_amount_to_miner = bcadd($total_amount_to_miner,"50",8);
+
+        //We created the mining transaction + fee
+        $tx = new Transaction(null,$gossip->coinbase, $total_amount_to_miner, $gossip->key->privKey,"","");
 
         //We take all pending transactions
         $transactions = array($tx);
@@ -58,12 +60,13 @@ class Miner {
 
             //We subtract the commission of the transfer
             $amount = $txn['amount'];
+
             if ($txn['tx_fee'] == 3)
-                $amount -= 0.00014000;
+                $amount = bcsub("".$amount,"0.00001400",8);
             else if ($txn['tx_fee'] == 2)
-                $amount -= 0.00009000;
+                $amount = bcsub("".$amount,"0.00000900",8);
             else if ($txn['tx_fee'] == 1)
-                $amount -= 0.00000250;
+                $amount = bcsub("".$amount,"0.00000250",8);
 
             //Transactions can not have negative value
             if ($amount < 0)

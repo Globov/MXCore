@@ -421,6 +421,15 @@ class Gossip {
                         }
                     }
                 }
+
+                //We get the pending transactions from BootstrapNode
+                if (!$this->bootstrap_node) {
+                    $transactionsByPeer = BootstrapNode::GetPendingTransactions($this->chaindata);
+                    foreach ($transactionsByPeer as $transactionByPeer) {
+                        $this->chaindata->addPendingTransactionByBootstrap($transactionByPeer);
+                    }
+                }
+
             }
         }
     }
@@ -436,6 +445,14 @@ class Gossip {
                 Display::DisplayMinerScreen();
             }
 
+            //We get the pending transactions from BootstrapNode firstTime
+            if (!$this->bootstrap_node) {
+                $transactionsByPeer = BootstrapNode::GetPendingTransactions($this->chaindata);
+                foreach ($transactionsByPeer as $transactionByPeer) {
+                    $this->chaindata->addPendingTransactionByBootstrap($transactionByPeer);
+                }
+            }
+
             //If we do not build the genesis, we'll go around
             while (true) {
                 //We establish the title of the process
@@ -446,9 +463,6 @@ class Gossip {
 
                 //If we are not synchronizing and (we are connected to the bootstrap node or we are the bootstrap node)
                 if (!$this->syncing && ($this->connected_to_bootstrap || $this->bootstrap_node)) {
-
-                    //We get the pending transactions from BootstrapNode
-                    BootstrapNode::GetPendingTransactions($this->chaindata);
 
                     //We send all pending transactions to the network
                     $this->sendPendingTransactionsToNetwork();
