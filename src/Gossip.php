@@ -434,7 +434,6 @@ class Gossip {
                     //We send all pending transactions to the network
                     $this->sendPendingTransactionsToNetwork();
 
-
                     //We mine the block
                     if ($this->enable_mine) {
                         $mined = Miner::MineNewBlock($this);
