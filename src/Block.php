@@ -72,9 +72,9 @@ class Block {
                 'current_blocks_difficulty' => $blockchain->blocks_count_reset+1,
                 'current_blocks_halving' => $blockchain->blocks_count_halving+1,
                 'max_difficulty' => '00000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',
-                'num_blocks_to_change_difficulty' => '2016',
-                'num_blocks_to_halving' => '250000',
-                'time_expected_to_mine' => '20160'
+                'num_blocks_to_change_difficulty' => 2016,
+                'num_blocks_to_halving' => 250000,
+                'time_expected_to_mine' => 20160
             );
 
             $date = new DateTime();

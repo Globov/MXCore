@@ -29,6 +29,7 @@ class Transaction {
     public $amount;
     public $signature;
     public $timestamp;
+    public $tx_fee;
 
     /**
      * Transaction constructor.
@@ -37,14 +38,15 @@ class Transaction {
      * @param $amount
      * @param $privKey
      * @param string $password
+     * @param int $tx_fee
      * @param bool $signed
      * @param null $hash
      * @param null $signature
      * @param null $timestamp
      */
-    public function __construct($from,$to,$amount,$privKey,$password="",$signed=false,$hash=null,$signature=null,$timestamp=null)
+    public function __construct($from,$to,$amount,$privKey,$password="",$tx_fee,$signed=false,$hash=null,$signature=null,$timestamp=null)
     {
-
+        $this->tx_fee = ($tx_fee != null) ? $tx_fee:'';
         $this->from = $from;
         $this->to = $to;
         $this->amount = $amount;

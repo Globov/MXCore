@@ -524,6 +524,7 @@ class Gossip {
                                     $transactionInfo->amount,
                                     null,
                                     null,
+                                    (isset($transactionInfo->tx_fee)) ? $transactionInfo->tx_fee:'',
                                     true,
                                     $transactionInfo->txn_hash,
                                     $transactionInfo->signature,

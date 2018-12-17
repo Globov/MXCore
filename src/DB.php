@@ -90,7 +90,6 @@ class DB {
      * @return bool
      */
     public function addPeer($ip,$port) {
-        //Comprobamos que no hayamos registrado ya este bloque minado
         $info_mined_blocks_by_peer = $this->db->querySingle("SELECT ip FROM peers WHERE ip = '".$ip."' AND port = '".$port."';",true);
         if (empty($info_mined_blocks_by_peer)) {
             if ($this->db->exec("INSERT INTO peers (ip,port) VALUES ('".$ip."', '".$port."');"))
@@ -107,7 +106,6 @@ class DB {
      * @return bool
      */
     public function haveThisPeer($ip,$port) {
-        //Comprobamos que no hayamos registrado ya este bloque minado
         $info_mined_blocks_by_peer = $this->db->querySingle("SELECT ip FROM peers WHERE ip = '".$ip."' AND port = '".$port."';",true);
         if (!empty($info_mined_blocks_by_peer)) {
             return true;
@@ -122,7 +120,6 @@ class DB {
      * @return bool
      */
     public function GetBlockByHash($hash) {
-        //Comprobamos que no hayamos registrado ya este bloque minado
         $sql = "SELECT * FROM blocks WHERE block_hash = '".$hash."'";
         $info_block = $this->db->querySingle($sql,true);
         if (!empty($info_block)) {
@@ -149,7 +146,6 @@ class DB {
      * @return bool
      */
     public function GetTransactionByHash($hash) {
-        //Comprobamos que no hayamos registrado ya este bloque minado
         $sql = "SELECT * FROM transactions WHERE txn_hash = '".$hash."';";
         $info_txn = $this->db->querySingle($sql,true);
         if (!empty($info_txn)) {
@@ -165,7 +161,6 @@ class DB {
      * @return array
      */
     public function GetWalletInfo($wallet) {
-        //Comprobamos que no hayamos registrado ya este bloque minado
         $totalSended = $this->db->querySingle("SELECT sum(T.amount) as TotalSend FROM transactions as T WHERE T.wallet_from = '".$wallet."';");
         $totalReceived = $this->db->querySingle("SELECT sum(T.amount) as TotalReceived FROM transactions as T WHERE T.wallet_to = '".$wallet."';");
 
@@ -175,13 +170,12 @@ class DB {
         if ($totalReceived == null)
             $totalReceived = 0;
 
-        //Por defecto, tenemos lo que hemos recibido
+        //By default, we have what we have received
         $current = $totalReceived;
 
-        //Si hemos enviado algo, lo restamos
-        if ($totalSended > 0) {
+        //If we have sent something, we subtract it
+        if ($totalSended > 0)
             $current = $totalReceived - $totalSended;
-        }
 
         return array(
             'sended' => $totalSended,
@@ -197,9 +191,7 @@ class DB {
      * @return array
      */
     public function GetTransactionsByWallet($wallet) {
-
-        //Obtenemos las transac
-        $transactions_chaindata = $this->db->query("SELECT * FROM transactions WHERE wallet_to = '".$wallet."' OR wallet_from = '".$wallet."';");
+        $transactions_chaindata = $this->db->query("SELECT * FROM transactions WHERE wallet_to = '".$wallet."' OR wallet_from = '".$wallet."' ORDER BY timestamp DESC;");
         $transactions = array();
         if (!empty($transactions_chaindata)) {
             while ($transactionInfo = $transactions_chaindata->fetchArray(SQLITE3_ASSOC)) {
@@ -217,7 +209,6 @@ class DB {
      * @return bool
      */
     public function GetBlockByHeight($height) {
-        //Comprobamos que no hayamos registrado ya este bloque minado
         $sql = "SELECT * FROM blocks WHERE height = ".$height.";";
         $info_block = $this->db->querySingle($sql,true);
         if (!empty($info_block)) {
@@ -245,12 +236,11 @@ class DB {
      * @return bool
      */
     public function addPendingTransaction($transaction) {
-        //Comprobamos que no hayamos registrado ya este bloque minado
         $into_tx_pending = $this->db->querySingle("SELECT txn_hash FROM transactions_pending WHERE txn_hash = '".$transaction['txn_hash']."';",true);
         if (empty($into_tx_pending)) {
 
-            $sql_update_transactions = "INSERT INTO transactions_pending (block_hash, txn_hash, wallet_from_key, wallet_from, wallet_to, amount, signature, timestamp) 
-                    VALUES ('','".$transaction['txn_hash']."','".$transaction['wallet_from_key']."','".$transaction['wallet_from']."','".$transaction['wallet_to']."','".$transaction['amount']."','".$transaction['signature']."','".$transaction['timestamp']."');";
+            $sql_update_transactions = "INSERT INTO transactions_pending (block_hash, txn_hash, wallet_from_key, wallet_from, wallet_to, amount, signature, tx_fee, timestamp) 
+                    VALUES ('','".$transaction['txn_hash']."','".$transaction['wallet_from_key']."','".$transaction['wallet_from']."','".$transaction['wallet_to']."','".$transaction['amount']."','".$transaction['signature']."','".$transaction['tx_fee']."','".$transaction['timestamp']."');";
             if ($this->db->exec($sql_update_transactions)) {
                 return true;
             }
@@ -265,7 +255,7 @@ class DB {
      */
     public function GetAllPendingTransactions() {
         $txs = array();
-        $txs_chaindata = $this->db->query("SELECT * FROM transactions_pending");
+        $txs_chaindata = $this->db->query("SELECT * FROM transactions_pending ORDER BY tx_fee ASC LIMIT 512");
         if (!empty($txs_chaindata)) {
             while ($tx_chaindata = $txs_chaindata->fetchArray()) {
                 $txs[] = $tx_chaindata;
@@ -282,8 +272,6 @@ class DB {
      * @return bool
      */
     public function addPendingTransactionsByPeer($transactionsByPeer) {
-
-        //Agregamos la transaccion pendiente al chaindata
         foreach ($transactionsByPeer as $tx)
             $this->addPendingTransaction($tx);
 
@@ -298,7 +286,6 @@ class DB {
      * @return bool
      */
     public function addPendingTransactionToSend($txHash,$transaction) {
-        //Comprobamos que no hayamos registrado ya este bloque minado
         $into_tx_pending = $this->db->querySingle("SELECT txn_hash FROM transactions_pending_to_send WHERE txn_hash = '".$txHash."';",true);
         if (empty($into_tx_pending)) {
 
@@ -309,8 +296,8 @@ class DB {
                 $wallet_from = Wallet::GetWalletAddressFromPubKey($transaction->from);
             }
 
-            $sql_update_transactions = "INSERT INTO transactions_pending_to_send (block_hash, txn_hash, wallet_from_key, wallet_from, wallet_to, amount, signature, timestamp) 
-                    VALUES ('','".$transaction->message()."','".$wallet_from_pubkey."','".$wallet_from."','".$transaction->to."','".$transaction->amount."','".$transaction->signature."','".$transaction->timestamp."');";
+            $sql_update_transactions = "INSERT INTO transactions_pending_to_send (block_hash, txn_hash, wallet_from_key, wallet_from, wallet_to, amount, signature, tx_fee, timestamp) 
+                    VALUES ('','".$transaction->message()."','".$wallet_from_pubkey."','".$wallet_from."','".$transaction->to."','".$transaction->amount."','".$transaction->signature."','".$transaction->tx_fee."','".$transaction->timestamp."');";
             if ($this->db->exec($sql_update_transactions)) {
                 return true;
             }
@@ -326,7 +313,6 @@ class DB {
      * @return bool
      */
     public function removePendingTransaction($txHash) {
-        //Comprobamos que no hayamos registrado ya este bloque minado
         $this->db->exec("DELETE FROM transactions_pending WHERE txn_hash='".$txHash."';");
     }
 
@@ -338,7 +324,6 @@ class DB {
      * @return bool
      */
     public function removePendingTransactionToSend($txHash) {
-        //Comprobamos que no hayamos registrado ya este bloque minado
         $this->db->exec("DELETE FROM transactions_pending_to_send WHERE txn_hash='".$txHash."';");
     }
 
@@ -429,7 +414,6 @@ class DB {
      * @return bool
      */
     public function addBlock($blockNum,$blockInfo) {
-        //Comprobamos que no hayamos registrado ya este bloque minado
         $info_block_chaindata = $this->db->querySingle("SELECT block_hash FROM blocks WHERE block_hash = '".$blockInfo->hash."';",true);
         if (empty($info_block_chaindata)) {
 
@@ -453,12 +437,12 @@ class DB {
                         $wallet_from = Wallet::GetWalletAddressFromPubKey($transaction->from);
                     }
 
-                    $sql_update_transactions = "INSERT INTO transactions (block_hash, txn_hash, wallet_from_key, wallet_from, wallet_to, amount, signature, timestamp) 
-                    VALUES ('".$blockInfo->hash."','".$transaction->message()."','".$wallet_from_pubkey."','".$wallet_from."','".$transaction->to."','".$transaction->amount."','".$transaction->signature."','".$transaction->timestamp."');";
+                    $sql_update_transactions = "INSERT INTO transactions (block_hash, txn_hash, wallet_from_key, wallet_from, wallet_to, amount, signature, tx_fee, timestamp) 
+                    VALUES ('".$blockInfo->hash."','".$transaction->message()."','".$wallet_from_pubkey."','".$wallet_from."','".$transaction->to."','".$transaction->amount."','".$transaction->signature."','".$transaction->tx_fee."','".$transaction->timestamp."');";
                     $this->db->exec($sql_update_transactions);
 
 
-                    //Eliminamos la transaccion de pendientes
+                    //We eliminated the pending transaction
                     $this->removePendingTransaction($transaction->message());
                     $this->removePendingTransactionToSend($transaction->message());
 
@@ -477,7 +461,6 @@ class DB {
      * @return bool
      */
     public function AddMinedBlockByPeer($previous_hash, $blockMined) {
-        //Comprobamos que no hayamos registrado ya este bloque minado
         $info_mined_blocks_by_peer = $this->db->querySingle("SELECT previous_hash FROM mined_blocks_by_peers WHERE previous_hash = '".$previous_hash."';",true);
         if (empty($info_mined_blocks_by_peer)) {
             if ($this->db->exec("INSERT INTO mined_blocks_by_peers (previous_hash,block) VALUES ('".$previous_hash."', '".$blockMined."');"))
@@ -493,7 +476,6 @@ class DB {
      * @return bool|mixed
      */
     public function GetPeersMinedBlockByPrevious($previous_hash) {
-        //Comprobamos que no hayamos registrado ya este bloque minado
         $info_mined_blocks_by_peer = $this->db->querySingle("SELECT previous_hash, block FROM mined_blocks_by_peers WHERE previous_hash = '".$previous_hash."';",true);
         if (!empty($info_mined_blocks_by_peer)) {
             return $info_mined_blocks_by_peer;
@@ -529,10 +511,9 @@ class DB {
      * @return mixed
      */
     public function GetGenesisBlock() {
-        //Cargamos los bloques de la blockchain desde el chaindata
         $genesis_block = null;
         $blocks_chaindata = $this->db->query("SELECT * FROM blocks WHERE height = 0");
-        //Si tenemos informacion de bloques, vamos a importarlos en una nueva BlockChain
+        //If we have block information, we will import them into a new BlockChain
         if (!empty($blocks_chaindata)) {
             $height = 0;
             while ($blockInfo = $blocks_chaindata->fetchArray(SQLITE3_ASSOC)) {
@@ -561,12 +542,10 @@ class DB {
      * @return array
      */
     public function SyncBlocks($fromBlock) {
-
-        //Cargamos los bloques de la blockchain desde el chaindata
         $blocksToSync = array();
         $blocks_chaindata = $this->db->query("SELECT * FROM blocks ORDER BY height ASC LIMIT ".$fromBlock.",100");
 
-        //Si tenemos informacion de bloques, vamos a importarlos en una nueva BlockChain
+        //If we have block information, we will import them into a new BlockChain
         if (!empty($blocks_chaindata)) {
             $height = 0;
             while ($blockInfo = $blocks_chaindata->fetchArray(SQLITE3_ASSOC)) {
@@ -591,11 +570,11 @@ class DB {
      * Check that the basic tables exist for the blockchain to work
      */
     private function CheckIfExistTables() {
-        //Creamos las tablas por defecto
+        //We create the tables by default
         $this->db->exec("CREATE TABLE IF NOT EXISTS blocks (height INTEGER NOT NULL, block_previous TEXT, block_hash TEXT NOT NULL, nonce TEXT NOT NULL, timestamp_start_miner TEXT NOT NULL, timestamp_end_miner TEXT NOT NULL, difficulty TEXT NOT NULL, info BLOB NOT NULL);");
-        $this->db->exec("CREATE TABLE IF NOT EXISTS transactions (block_hash TEXT NOT NULL, txn_hash TEXT NOT NULL, wallet_from_key BLOB, wallet_from TEXT, wallet_to TEXT NOT NULL, amount TEXT NOT NULL, signature TEXT NOT NULL, timestamp TEXT NOT NULL);");
-        $this->db->exec("CREATE TABLE IF NOT EXISTS transactions_pending (block_hash TEXT NULL, txn_hash TEXT NOT NULL, wallet_from_key BLOB, wallet_from TEXT, wallet_to TEXT NOT NULL, amount TEXT NOT NULL, signature TEXT NOT NULL, timestamp TEXT NOT NULL);");
-        $this->db->exec("CREATE TABLE IF NOT EXISTS transactions_pending_to_send (block_hash TEXT NULL, txn_hash TEXT NOT NULL, wallet_from_key BLOB, wallet_from TEXT, wallet_to TEXT NOT NULL, amount TEXT NOT NULL, signature TEXT NOT NULL, timestamp TEXT NOT NULL);");
+        $this->db->exec("CREATE TABLE IF NOT EXISTS transactions (block_hash TEXT NOT NULL, txn_hash TEXT NOT NULL, wallet_from_key BLOB, wallet_from TEXT, wallet_to TEXT NOT NULL, amount TEXT NOT NULL, signature TEXT NOT NULL, tx_fee TEXT, timestamp TEXT NOT NULL);");
+        $this->db->exec("CREATE TABLE IF NOT EXISTS transactions_pending (block_hash TEXT NULL, txn_hash TEXT NOT NULL, wallet_from_key BLOB, wallet_from TEXT, wallet_to TEXT NOT NULL, amount TEXT NOT NULL, signature TEXT NOT NULL, tx_fee TEXT, timestamp TEXT NOT NULL);");
+        $this->db->exec("CREATE TABLE IF NOT EXISTS transactions_pending_to_send (block_hash TEXT NULL, txn_hash TEXT NOT NULL, wallet_from_key BLOB, wallet_from TEXT, wallet_to TEXT NOT NULL, amount TEXT NOT NULL, signature TEXT NOT NULL, tx_fee TEXT, timestamp TEXT NOT NULL);");
         $this->db->exec("CREATE TABLE IF NOT EXISTS peers (ip TEXT NOT NULL, port TEXT NOT NULL);");
         $this->db->exec("CREATE TABLE IF NOT EXISTS mined_blocks_by_peers (previous_hash TEXT UNIQUE NOT NULL, block BLOB NOT NULL);");
         $this->db->exec("CREATE TABLE IF NOT EXISTS transactions_pending (hash TEXT UNIQUE NOT NULL, tx BLOB NOT NULL);");

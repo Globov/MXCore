@@ -56,6 +56,7 @@ if (isset($_REQUEST)) {
             break;
             case 'GETBLOCKBYHASH':
                 if (isset($_REQUEST['hash'])) {
+                    //We get a block given a hash
                     $return['status'] = true;
                     $return['result'] = $chaindata->GetBlockByHash($_REQUEST['hash']);
                 }
@@ -121,7 +122,5 @@ if (isset($_REQUEST)) {
         }
     }
 }
-
-echo json_encode($return);
-
+echo @json_encode($return);
 ?>

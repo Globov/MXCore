@@ -60,6 +60,24 @@ if (isset($argv)) {
         exit("Example: php wallet_send.php WALLET_FROM|coinbase WALLET_TO AMOUNT PASSWORD_FROM");
     }
 
+    $tx_free = 2;
+    if (isset($argv[5])) {
+        switch ($argv[5]) {
+            case "high":
+                $tx_free = 3;
+            break;
+            case "medium":
+                $tx_free = 2;
+            break;
+            case "low":
+                $tx_free = 1;
+            break;
+            default:
+                $tx_free = 2;
+            break;
+        }
+    }
+
     $wallet_from = $argv[1];
     $wallet_to = $argv[2];
     $amount = $argv[3];
@@ -86,7 +104,7 @@ if (isset($argv)) {
         if ($currentBalance >= $amount) {
 
             //Make transaction and sign
-            $transaction = new Transaction($wallet_from_info["public"],$wallet_to,$amount,$wallet_from_info["private"],$wallet_from_password);
+            $transaction = new Transaction($wallet_from_info["public"],$wallet_to,$amount,$wallet_from_info["private"],$wallet_from_password,$tx_free);
 
             // Check if transaction is valid
             if ($transaction->isValid()) {

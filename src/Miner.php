@@ -32,16 +32,45 @@ class Miner {
      */
     public static function MineNewBlock(&$gossip) {
 
-        //We created the mining transaction
-        $tx = new Transaction(null,$gossip->coinbase, "50", $gossip->key->privKey,"");
+        //Get Pending transactions
+        $transactions_pending = $gossip->chaindata->GetAllPendingTransactions();
+
+        //We calculate the commissions of the pending transactions
+        $total_fee = 0;
+        foreach ($transactions_pending as $txn) {
+            if ($txn['tx_fee'] == 3)
+                $total_fee += 0.000140;
+            else if ($txn['tx_fee'] == 2)
+                $total_fee += 0.000090;
+            else if ($txn['tx_fee'] == 1)
+                $total_fee += 0.000025;
+        }
+
+        //We created the mining transaction + fee
+        //TODO - Implement halving system
+        $tx = new Transaction(null,$gossip->coinbase, 50 + $total_fee, $gossip->key->privKey,"","");
 
         //We take all pending transactions
         $transactions = array($tx);
 
         //We add the transactions to the blockchain to generate the block
-        $transactions_pending = $gossip->chaindata->GetAllPendingTransactions();
-        foreach ($transactions_pending as $txn)
-            $transactions[] = new Transaction($txn['wallet_from_key'],$txn['wallet_to'], $txn['amount'], null,null, true, $txn['txn_hash'], $txn['signature'], $txn['timestamp']);
+        foreach ($transactions_pending as $txn) {
+
+            //We subtract the commission of the transfer
+            $amount = $txn['amount'];
+            if ($txn['tx_fee'] == 3)
+                $amount -= 0.000140;
+            else if ($txn['tx_fee'] == 2)
+                $amount -= 0.000090;
+            else if ($txn['tx_fee'] == 1)
+                $amount -= 0.000025;
+
+            //Transactions can not have negative value
+            if ($amount < 0)
+                $amount = 0;
+
+            $transactions[] = new Transaction($txn['wallet_from_key'],$txn['wallet_to'], $amount, null,null, $txn['tx_fee'],true, $txn['txn_hash'], $txn['signature'], $txn['timestamp']);
+        }
 
         //We create the new block with the hash of the previous block, the pending transactions, pointer to the blockchain
         $blockMined = new Block($gossip->state->blockchain->blocks[count($gossip->state->blockchain->blocks)-1],$gossip->state->blockchain->difficulty,$transactions,$gossip->state->blockchain);
