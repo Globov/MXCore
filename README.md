@@ -26,4 +26,7 @@ For miner node:
 For viewer node:
   - ./node_viewer.sh
   
+# Discord server
+https://discord.gg/WNhJZuQ
+
 # Cryptocurrency under construction
