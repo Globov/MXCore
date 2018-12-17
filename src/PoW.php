@@ -91,18 +91,8 @@ class PoW {
                         Display::NewBlockCancelled($numBlock,$blockMinedByPeer);
 
                         //We add the block to the chaindata (DB)
-                        if ($chaindata->addBlock($numBlock,$blockMinedByPeer)) {
-
-                            //TODO REVISAR SISTEMA DIDIFUCLTAD
-                            /*
-                            //Si se ha modificado la dificultad, actualizamos el conteo en la chaindata
-                            if ($changedDifficulty) {
-                                if ($chaindata->DifficultyReset())
-                                    return true;
-                            }
-                            */
+                        if ($chaindata->addBlock($numBlock,$blockMinedByPeer))
                             return true;
-                        }
 
                         //Cortamos la POW
                         return false;

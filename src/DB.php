@@ -517,6 +517,18 @@ class DB {
     }
 
     /**
+     * Remove a block mined by a peer given a previous_hash
+     *
+     * @param $previous_hash
+     * @return bool
+     */
+    public function RemovePeerMinedBlocks() {
+        if ($this->db->exec("DELETE FROM mined_blocks_by_peers;"))
+            return true;
+        return false;
+    }
+
+    /**
      * Returns the next block number in the block chain
      * Must be the number entered in the next block
      *

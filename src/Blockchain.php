@@ -101,11 +101,23 @@ class Blockchain {
      *
      * @param $blockID
      * @param $block
+     * @param bool $counting
+     * @return bool
      */
-    public function addSync($blockID, $block) {
+    public function addSync($blockID, $block,$counting=false) {
 
         //We add the block to the block chain
         $this->blocks[$blockID] = $block;
+
+
+        //We increase the number of blocks processed for the reset of the difficulty and the reward halving
+        if ($counting) {
+            $this->blocks_count_reset++;
+            $this->blocks_count_halving++;
+        }
+
+        //We check the difficulty of the network
+        return $this->checkDifficulty();
     }
 
     /**

@@ -96,7 +96,7 @@ class Display {
         );
         $blockMinedInSeconds = $minedTime->format('%im%ss');
 
-        self::_printer("%Y%Mined new block     %G%nonce%W%=".$lastBlock->nonce."   %G%elapsed%W%=".$blockMinedInSeconds."   %G%number%W%=".$lastBlockNum."   %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash);
+        self::_printer("%Y%Mined new block     ");
     }
 
     /**

@@ -161,6 +161,9 @@ class Gossip {
             $blockchain = Blockchain::loadFromChaindata($this->chaindata);
             $this->state = new State($name,$blockchain,$this->chaindata);
 
+            //Remove Blocks mineds by peers
+            //$this->chaindata->RemovePeerMinedBlocks();
+
             Display::_printer("Blockchain loaded successfully");
             Display::_printer("Height: %G%".$blockchain->count());
             Display::_printer("LastBlock: %G%".$blockchain->GetLastBlock()->hash);
@@ -481,6 +484,9 @@ class Gossip {
                             $this->state->blockchain->blocks_count_reset = $blockMinedByPeer->info['current_blocks_difficulty'];
                             $this->state->blockchain->blocks_count_halving = $blockMinedByPeer->info['current_blocks_halving'];
                         }
+
+                        //We wait 2 - 2.5 seconds before continuing
+                        usleep(rand(1500000,2500000));
                     }
 
                     //We check if there are new blocks to be added and that they are next to the last block of the blockchain
@@ -512,14 +518,14 @@ class Gossip {
                                 //The block mined by the peer is valid
                                 $this->chaindata->RemovePeerMinedBlockByPrevious($last_hash_block);
 
-                                //We add the block to the chaindata and the blockchain
-                                $this->chaindata->addBlock($numBlock,$blockMinedByPeer);
-                                $this->state->blockchain->addSync($numBlock,$blockMinedByPeer);
-
                                 //We load the information of the difficulty and counting of blocks with the information of the mined block
                                 $this->state->blockchain->difficulty = $blockMinedByPeer->difficulty;
                                 $this->state->blockchain->blocks_count_reset = $blockMinedByPeer->info['current_blocks_difficulty'];
                                 $this->state->blockchain->blocks_count_halving = $blockMinedByPeer->info['current_blocks_halving'];
+
+                                //We add the block to the chaindata and the blockchain
+                                $this->chaindata->addBlock($numBlock,$blockMinedByPeer);
+                                $this->state->blockchain->addSync($numBlock,$blockMinedByPeer,true);
 
                                 //We send the mined block to all connected peers
                                 $this->sendBlockMinedToNetwork($blockMinedByPeer);
@@ -649,16 +655,21 @@ class Gossip {
         $peers = $this->chaindata->GetAllPeers();
         foreach ($peers as $peer) {
 
-            $infoToSend = array(
-                'action' => 'ADDPENDINGTRANSACTIONS',
-                'txs' => $pending_tx
-            );
+            $myPeerID = Tools::GetIdFromIpAndPort($this->ip,$this->port);
+            $peerID = Tools::GetIdFromIpAndPort($peer['ip'],$peer['port']);
 
-            if ($peer["ip"] == "blockchain.mataxetos.es") {
-                Tools::postContent('https://blockchain.mataxetos.es/gossip.php', $infoToSend);
-            }
-            else {
-                Tools::postContent('http://' . $peer['ip'] . ':' . $peer['port'] . '/gossip.php', $infoToSend);
+            if ($myPeerID != $peerID) {
+                $infoToSend = array(
+                    'action' => 'ADDPENDINGTRANSACTIONS',
+                    'txs' => $pending_tx
+                );
+
+                if ($peer["ip"] == "blockchain.mataxetos.es") {
+                    Tools::postContent('https://blockchain.mataxetos.es/gossip.php', $infoToSend);
+                }
+                else {
+                    Tools::postContent('http://' . $peer['ip'] . ':' . $peer['port'] . '/gossip.php', $infoToSend);
+                }
             }
         }
 
@@ -675,7 +686,11 @@ class Gossip {
     public function sendBlockMinedToNetwork($blockMined) {
         $peers = $this->chaindata->GetAllPeers();
         foreach ($peers as $peer) {
-            if ($this->ip.":".$this->port != $peer['ip'].":".$peer['port']) {
+
+            $myPeerID = Tools::GetIdFromIpAndPort($this->ip,$this->port);
+            $peerID = Tools::GetIdFromIpAndPort($peer['ip'],$peer['port']);
+
+            if ($myPeerID != $peerID) {
                 $infoToSend = array(
                     'action' => 'MINEDBLOCK',
                     'hash_previous' => $blockMined->previous,

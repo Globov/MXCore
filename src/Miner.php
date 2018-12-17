@@ -78,6 +78,9 @@ class Miner {
             //We warn the network that we have mined this block
             $gossip->sendBlockMinedToNetwork($blockMined);
 
+            return true;
+
+            /*
             //Check if other miner has mined this block
             $last_hash_block = $gossip->state->blockchain->GetLastBlock()->hash;
             $peerMinedBlock = $gossip->chaindata->GetPeersMinedBlockByPrevious($last_hash_block);
@@ -91,24 +94,10 @@ class Miner {
                 $numBlock = $gossip->chaindata->GetNextBlockNum();
 
                 //We add the block to the chaindata (DB)
-                if ($gossip->chaindata->addBlock($numBlock,$blockMined)) {
-
-                    //TODO REVISAR SISTEMA DIDIFUCLTAD
-                    /*
-                    //Si se ha modificado la dificultad, actualizamos el conteo en la chaindata
-                    if ($changedDifficulty) {
-                        if ($gossip->chaindata->DifficultyReset())
-                            return true;
-                    */
+                if ($gossip->chaindata->addBlock($numBlock,$blockMined))
                     return true;
-                    //No se ha modificado la dificultad, asi que incrementamos el conteo en la chaindata
-                    /*
-                    } else {
-                        return true;
-                    }
-                    */
-                }
             }
+            */
         }
         return false;
     }
