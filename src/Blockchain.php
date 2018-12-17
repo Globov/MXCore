@@ -204,11 +204,11 @@ class Blockchain {
         if ($bc->count() > 0) {
             $bc->difficulty = $bc->GetLastBlock()->difficulty;
             $bc->blocks_count_reset = $bc->GetLastBlock()->info['current_blocks_difficulty'];
-            $bc->blocks_count_reset = $bc->GetLastBlock()->info['current_blocks_halving'];
+            $bc->blocks_count_halving = $bc->GetLastBlock()->info['current_blocks_halving'];
         } else {
             $bc->difficulty = 1;
             $bc->blocks_count_reset = 1;
-            $bc->blocks_count_reset = 1;
+            $bc->blocks_count_halving = 1;
         }
 
         return $bc;
