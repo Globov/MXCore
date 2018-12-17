@@ -1,4 +1,3 @@
-.htaccess
 .idea/
 tests/
 php/
@@ -6,7 +5,8 @@ lighttpd/
 js/
 images/
 fonts/
-data/
+data/chaindata*
+data/wallets/
 css/
 bin/bootstrap_node.bat
 bin/bootstrap_node.sh
