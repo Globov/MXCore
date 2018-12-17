@@ -48,6 +48,10 @@ if (isset($_REQUEST)) {
     if (isset($_REQUEST['action'])) {
         $chaindata = new DB();
         switch (strtoupper($_REQUEST['action'])) {
+            case 'GETPENDINGTRANSACTIONS':
+                $return['status'] = true;
+                $return['result'] = $chaindata->GetAllPendingTransactions();
+            break;
             case 'ADDPENDINGTRANSACTIONS':
                 if (isset($_REQUEST['txs'])) {
                     $return['status'] = true;

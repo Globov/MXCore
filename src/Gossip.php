@@ -431,6 +431,9 @@ class Gossip {
                 //If we are not synchronizing and (we are connected to the bootstrap node or we are the bootstrap node)
                 if (!$this->syncing && ($this->connected_to_bootstrap || $this->bootstrap_node)) {
 
+                    //We get the pending transactions from BootstrapNode
+                    BootstrapNode::GetPendingTransactions($this->chaindata);
+
                     //We send all pending transactions to the network
                     $this->sendPendingTransactionsToNetwork();
 

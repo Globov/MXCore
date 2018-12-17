@@ -52,6 +52,27 @@ class BootstrapNode {
      * We get the last block of the BootstrapNode
      *
      * @param DB $chaindata
+     * @return int|mixed
+     */
+    public static function GetPendingTransactions(&$chaindata) {
+        $bootstrapNode = $chaindata->GetBootstrapNode();
+        //Nos comunicamos con el BOOTSTRAP_NODE
+        $infoToSend = array(
+            'action' => 'GETPENDINGTRANSACTIONS'
+        );
+
+        $infoPOST = Tools::postContent('https://' . self::$ip . '/gossip.php', $infoToSend);
+        if ($infoPOST->status == 1)
+            return $infoPOST->result;
+        else
+            return 0;
+    }
+
+    /**
+     *
+     * We get the last block of the BootstrapNode
+     *
+     * @param DB $chaindata
      * @return int
      */
     public static function GetLastBlockNum(&$chaindata) {

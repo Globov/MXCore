@@ -39,11 +39,11 @@ class Miner {
         $total_fee = 0;
         foreach ($transactions_pending as $txn) {
             if ($txn['tx_fee'] == 3)
-                $total_fee += 0.000140;
+                $total_fee += 0.00014000;
             else if ($txn['tx_fee'] == 2)
-                $total_fee += 0.000090;
+                $total_fee += 0.00009000;
             else if ($txn['tx_fee'] == 1)
-                $total_fee += 0.000025;
+                $total_fee += 0.00000250;
         }
 
         //We created the mining transaction + fee
@@ -59,11 +59,11 @@ class Miner {
             //We subtract the commission of the transfer
             $amount = $txn['amount'];
             if ($txn['tx_fee'] == 3)
-                $amount -= 0.000140;
+                $amount -= 0.00014000;
             else if ($txn['tx_fee'] == 2)
-                $amount -= 0.000090;
+                $amount -= 0.00009000;
             else if ($txn['tx_fee'] == 1)
-                $amount -= 0.000025;
+                $amount -= 0.00000250;
 
             //Transactions can not have negative value
             if ($amount < 0)

@@ -149,6 +149,15 @@ class Wallet {
      */
     public static function SendTransaction($wallet_from,$wallet_from_password,$wallet_to,$amount,$tx_fee) {
 
+        if ($tx_fee == 3 && $amount < 0.00014000)
+            return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." There is not enough balance in the account".PHP_EOL;
+
+        if ($tx_fee == 2 && $amount < 0.00009000)
+            return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." There is not enough balance in the account".PHP_EOL;
+
+        if ($tx_fee == 1 && $amount < 0.00000250)
+            return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." There is not enough balance in the account".PHP_EOL;
+
         if ($wallet_from == "coinbase") {
             $wallet_from_info = self::GetCoinbase();
             $wallet_from = self::GetWalletAddressFromPubKey($wallet_from_info['public']);
