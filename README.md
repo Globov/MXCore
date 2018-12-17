@@ -27,6 +27,17 @@ https://blockchain.mataxetos.es/
 # How run
 - Clone repository on root website folder
 - Navigate into bin folder
+- Edit apache2.conf and change:
+
+    <Directory /var/www/>
+    
+    ...
+    
+    AllowOverride None -> AllowOverride All
+    
+    ...
+    
+    </Directory>
 
 For miner node:
   - ./node_miner.sh
