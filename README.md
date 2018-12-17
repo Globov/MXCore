@@ -29,4 +29,7 @@ For viewer node:
 # Discord server
 https://discord.gg/WNhJZuQ
 
+Anyone is welcome to contribute to MXCoin! 
+If you have a fix or code change, feel free to submit it as a pull request directly to the "master" branch.
+
 # Cryptocurrency under construction
