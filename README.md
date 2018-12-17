@@ -26,8 +26,7 @@ https://blockchain.mataxetos.es/
 
 # How run
 - Clone repository on root website folder
-- Navigate into bin folder
-- Edit apache2.conf and change:
+- Edit apache2.conf (Default: /etc/apache2/apache2.conf) and change:
 ```
     <Directory /var/www/>
     ...
@@ -35,6 +34,8 @@ https://blockchain.mataxetos.es/
     ...
     </Directory>
 ```
+
+- Navigate into bin folder
 
 For miner node:
 ```
