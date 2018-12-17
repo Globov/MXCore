@@ -18,6 +18,7 @@ PoW sha256
 - Make testnet
 - Add more bootstrap nodes
 - Add version system
+- Add PoolMinning system
   
 # Public Explorer MXCoin
 
