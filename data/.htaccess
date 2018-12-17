@@ -1,1 +1,16 @@
-Deny from all
+Options -Indexes
+
+<Files wallets>
+    Order allow, deny
+    Deny from all
+</Files>
+
+<Files wallets/*.dat>
+    Order allow, deny
+    Deny from all
+</Files>
+
+<Directory /var/www/data/>
+    Order allow, deny
+    Deny from all
+</Directory>
