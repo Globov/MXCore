@@ -12,6 +12,13 @@ PoW sha256
   - php_bcmath
   - php_curl
   
+# Plans
+- Improve Explorer
+- Make MX Console Client
+- Make testnet
+- Add more bootstrap nodes
+- Add version system
+  
 # Public Explorer MXCoin
 
 https://blockchain.mataxetos.es/
