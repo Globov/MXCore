@@ -89,6 +89,11 @@ class Wallet {
      */
     public static function GetBalance($address) {
 
+        if ($address == "coinbase") {
+            $wallet_from_info = self::GetCoinbase();
+            $address = self::GetWalletAddressFromPubKey($wallet_from_info['public']);
+        }
+
         //Instanciamos el puntero al chaindata
         $chaindata = new DB();
 
