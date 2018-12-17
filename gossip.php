@@ -44,27 +44,18 @@ $return = array(
     'result'    => null
 );
 
-//Si tenemos informacion enviada por REQUEST (GET O POST)
 if (isset($_REQUEST)) {
-
-    //SI TENEMOS LA ACTION
     if (isset($_REQUEST['action'])) {
-
-        //Instanciamos el puntero al chaindata
         $chaindata = new DB();
-
-        //MENU DE ACCIONES
         switch (strtoupper($_REQUEST['action'])) {
             case 'ADDPENDINGTRANSACTIONS':
                 if (isset($_REQUEST['txs'])) {
-                    //Agregamos las transacciones pendientes recibidas por el peer
                     $return['status'] = true;
                     $return['result'] = $chaindata->addPendingTransactionsByPeer($_REQUEST['txs']);
                 }
             break;
             case 'GETBLOCKBYHASH':
                 if (isset($_REQUEST['hash'])) {
-                    //Agregamos el bloque minado y el hash anterior recibido de nuestro peer
                     $return['status'] = true;
                     $return['result'] = $chaindata->GetBlockByHash($_REQUEST['hash']);
                 }
@@ -78,7 +69,6 @@ if (isset($_REQUEST)) {
             break;
             case 'MINEDBLOCK':
                 if (isset($_REQUEST['hash_previous']) && isset($_REQUEST['block'])) {
-                    //Agregamos el bloque minado y el hash anterior recibido de nuestro peer
                     $return['status'] = true;
                     $chaindata->AddMinedBlockByPeer($_REQUEST['hash_previous'],$_REQUEST['block']);
                 }
