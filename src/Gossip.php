@@ -44,6 +44,8 @@ class Gossip {
 
     private $peersRetrys = array();
 
+    private $loop_x5 = 0;
+
     /**
      * Gossip constructor
      *
@@ -307,7 +309,7 @@ class Gossip {
      */
     public function _addPeer($ip, $port) {
 
-        if (!$this->chaindata->haveThisPeer($ip,$port)) {
+        if (!$this->chaindata->haveThisPeer($ip,$port) && ($this->ip != $ip && $this->port != $port)) {
             $infoToSend = array(
                 'action' => 'HELLO',
                 'client_ip' => $this->ip,
@@ -401,6 +403,29 @@ class Gossip {
     }
 
     /**
+     * This loop only run this loop only runs 1 time of 5 main loop
+     */
+    public function loop_x5() {
+        $this->loop_x5++;
+        if ($this->loop_x5 == 5) {
+            $this->loop_x5 = 0;
+
+            //If we are not synchronizing and (we are connected to the bootstrap node or we are the bootstrap node)
+            if (!$this->syncing && ($this->connected_to_bootstrap || $this->bootstrap_node)) {
+                //We ask the BootstrapNode to give us the information of the connected peers
+                $peersNode = BootstrapNode::GetPeers($this->chaindata);
+                if (is_array($peersNode) && !empty($peersNode)) {
+                    foreach ($peersNode as $peer) {
+                        if (trim($this->ip) . ":" . trim($this->port) != trim($peer->ip) . ":" . trim($peer->port)) {
+                            $this->_addPeer(trim($peer->ip), trim($peer->port));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * General loop of the node
      */
     public function loop() {
@@ -416,17 +441,8 @@ class Gossip {
                 //We establish the title of the process
                 $this->SetTitleProcess();
 
-                //If we are not the bootstrap node, we request all bootstrapNode peers to connect to them
-                if (!$this->bootstrap_node) {
-                    $peersNode = BootstrapNode::GetPeers($this->chaindata);
-                    if (is_array($peersNode) && !empty($peersNode)) {
-                        foreach ($peersNode as $peer) {
-                            if (trim($this->ip).":".trim($this->port) != trim($peer->ip).":".trim($peer->port)) {
-                                $this->_addPeer(trim($peer->ip),trim($peer->port));
-                            }
-                        }
-                    }
-                }
+                //Ejecutamos el loop x5
+                $this->loop_x5();
 
                 //If we are not synchronizing and (we are connected to the bootstrap node or we are the bootstrap node)
                 if (!$this->syncing && ($this->connected_to_bootstrap || $this->bootstrap_node)) {
