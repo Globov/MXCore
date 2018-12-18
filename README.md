@@ -15,6 +15,7 @@ PoW sha256
   - php_curl
   
 # Plans
+- Migrate form SQLite to MySQL
 - Add Merkle Tree
 - Improve Explorer
 - Make MX Console Client
