@@ -5,6 +5,7 @@ PoW sha256
 
 # Requisites
 
+- Open ports for p2p connection
 - Apache web server
 - PHP 7.0 or higher
 - PHP Extensions:
