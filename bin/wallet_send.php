@@ -43,22 +43,22 @@ if (isset($argv)) {
 
     if (!isset($argv[1])) {
         echo "You must specify the ".ColorsCLI::$FG_LIGHT_RED."Sender Wallet".ColorsCLI::$FG_WHITE.PHP_EOL;
-        exit("Example: php wallet_send.php WALLET_FROM|coinbase WALLET_TO AMOUNT PASSWORD_FROM");
+        exit("Example: php wallet_send.php WALLET_FROM|coinbase WALLET_TO AMOUNT PASSWORD_FROM FEE");
     }
 
     if (!isset($argv[2])) {
         echo "You must specify the ".ColorsCLI::$FG_LIGHT_RED."Recipient Wallet".PHP_EOL;
-        exit("Example: php wallet_send.php WALLET_FROM|coinbase WALLET_TO AMOUNT PASSWORD_FROM");
+        exit("Example: php wallet_send.php WALLET_FROM|coinbase WALLET_TO AMOUNT PASSWORD_FROM FEE");
     }
 
     if (!isset($argv[3])) {
         echo "You must specify the amount you want to send".PHP_EOL;
-        exit("Example: php wallet_send.php WALLET_FROM|coinbase WALLET_TO AMOUNT PASSWORD_FROM");
+        exit("Example: php wallet_send.php WALLET_FROM|coinbase WALLET_TO AMOUNT PASSWORD_FROM FEE");
     }
 
     if (!isset($argv[4])) {
         echo "You must specify the password of the Sender Wallet to sign the transaction".PHP_EOL;
-        exit("Example: php wallet_send.php WALLET_FROM|coinbase WALLET_TO AMOUNT PASSWORD_FROM");
+        exit("Example: php wallet_send.php WALLET_FROM|coinbase WALLET_TO AMOUNT PASSWORD_FROM FEE");
     }
 
     $tx_fee = 2;
@@ -89,5 +89,15 @@ if (isset($argv)) {
         $wallet_from_password = "";
 
     echo Wallet::SendTransaction($wallet_from,$wallet_from_password,$wallet_to,$amount,$tx_fee);
+} else {
+    Display::ClearScreen();
+    echo "Example of use:".PHP_EOL;
+    echo "php wallet_send.php WALLET_FROM|coinbase WALLET_TO|coinbase AMOUNT PASSWORD_FROM FEE".PHP_EOL;
+    echo "php wallet_send.php coinbase VTx00000000000000000000000000000000 100 PASSWORD_FROM high".PHP_EOL.PHP_EOL;
+    echo "WALLET_FROM = It must be the sender address or the keyword coinbase".PHP_EOL;
+    echo "WALLET_TO = It must be the destination address or the keyword coinbase".PHP_EOL;
+    echo "AMOUNT = amount to send".PHP_EOL;
+    echo "PASSWORD_FROM = Password from address".PHP_EOL;
+    echo "FEE = Fee of transaction (Values: high, medium low) - Default: medium".PHP_EOL;
 }
 ?>

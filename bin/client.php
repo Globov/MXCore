@@ -97,7 +97,5 @@ if (count($argv) > 1) {
     echo "Examples of use: ".PHP_EOL;
     echo "php client.php -u user -ip 0.0.0.0 -port 8080".PHP_EOL;
     echo "php client.php -u user -ip 0.0.0.0 -port 8080 -mine".PHP_EOL;
-
-
 }
 ?>

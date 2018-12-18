@@ -33,12 +33,15 @@ class Wallet {
      */
     public static function LoadOrCreate($account,$password) {
 
+        if ($password != null && $password == 'null')
+            $password = null;
+
         //By default, the file we want to check is the name of the account
         $wallet_file = State::GetBaseDir().DIRECTORY_SEPARATOR."data".DIRECTORY_SEPARATOR."wallets".DIRECTORY_SEPARATOR.$account.".dat";
 
         //If the wallet exists, we load it
-        if (file_exists($wallet_file)) {
-            return unserialize(@file_get_contents($wallet_file));
+        if (strlen($account) > 0 && @file_exists($wallet_file)) {
+            return @unserialize(@file_get_contents($wallet_file));
         } else {
             //There is no wallet so we generate the public and private key
             $keys = Pki::generateKeyPair($password);

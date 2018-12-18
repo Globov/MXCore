@@ -38,13 +38,11 @@ include('../src/State.php');
 include('../src/Transaction.php');
 include('../src/Miner.php');
 
-if (isset($argv)) {
-    if (!isset($argv[1]))
-        exit('You must specify a password for the Wallet, Example: php wallet_new.php PASSWORD');
+if (!isset($argv[1]))
+    exit('You must specify a password for the Wallet, Example: php wallet_new.php PASSWORD');
 
-    $wallet_password = $argv[1];
+$wallet_password = $argv[1];
 
-    $wallet = Wallet::LoadOrCreate("",$argv[1]);
-    echo "The wallet was generated correctly: " . Wallet::GetWalletAddressFromPubKey($wallet["public"]);
-}
+$wallet = Wallet::LoadOrCreate("",$argv[1]);
+echo "The wallet was generated correctly: " . Wallet::GetWalletAddressFromPubKey($wallet["public"]);
 ?>

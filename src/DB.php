@@ -155,6 +155,21 @@ class DB {
     }
 
     /**
+     * Returns a pending transaction given a hash
+     *
+     * @param $hash
+     * @return bool
+     */
+    public function GetPendingTransactionByHash($hash) {
+        $sql = "SELECT * FROM transactions_pending WHERE txn_hash = '".$hash."';";
+        $info_txn = $this->db->querySingle($sql,true);
+        if (!empty($info_txn)) {
+            return $info_txn;
+        }
+        return null;
+    }
+
+    /**
      * Returns the information of a wallet
      *
      * @param $hash

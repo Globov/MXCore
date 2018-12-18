@@ -39,15 +39,12 @@ include('../src/State.php');
 include('../src/Transaction.php');
 include('../src/Miner.php');
 
-if (isset($argv)) {
-
-    if (!isset($argv[1])) {
-        echo "You must specify the " . ColorsCLI::$FG_LIGHT_RED . "Wallet" . ColorsCLI::$FG_WHITE . PHP_EOL;
-        exit("Example: php wallet_getBalance.php WALLET|coinbase");
-    }
-
-    $wallet_from = $argv[1];
-
-    echo Wallet::GetBalance($wallet_from)." MX";
+if (!isset($argv[1])) {
+    echo "You must specify the " . ColorsCLI::$FG_LIGHT_RED . "Wallet" . ColorsCLI::$FG_WHITE . PHP_EOL;
+    exit("Example: php wallet_getBalance.php WALLET|coinbase");
 }
+
+$wallet_from = $argv[1];
+
+echo Wallet::GetBalance($wallet_from)." MX";
 ?>
