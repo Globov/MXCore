@@ -310,7 +310,7 @@ class Gossip {
      * @param $port
      * @return bool
      */
-    public function _addPeer($ip, $port) {
+    public function _addPeer($ip, $port,$displayMessage=true) {
 
         if (!$this->chaindata->haveThisPeer($ip,$port) && ($this->ip != $ip && $this->port != $port)) {
             $infoToSend = array(
@@ -319,17 +319,19 @@ class Gossip {
                 'client_port' => $this->port
             );
             $response = Tools::postContent('http://' . $ip . ':' . $port . '/gossip.php', $infoToSend, 5);
-            if (isset($response->status)) {
+            if ($response != null && isset($response->status)) {
                 if ($response->status == true) {
                     $this->chaindata->addPeer($ip, $port);
                     //Display::_printer("Connected to peer -> %G%" . $ip.":".$port);
-                    Display::_printer("Connected to peer -> %G%" . Tools::GetIdFromIpAndPort($ip,$port));
+                    if ($displayMessage)
+                        Display::_printer("Connected to peer -> %G%" . Tools::GetIdFromIpAndPort($ip,$port));
                 }
                 return true;
             }
             else {
                 //Display::_printer("%LR%Error%W% Can't connect to peer %G%". $ip.":".$port);
-                Display::_printer("%LR%Error%W% Can't connect to peer %G%". Tools::GetIdFromIpAndPort($ip,$port));
+                if ($displayMessage)
+                    Display::_printer("%LR%Error%W% Can't connect to peer %G%". Tools::GetIdFromIpAndPort($ip,$port));
                 return false;
             }
         }
@@ -420,7 +422,7 @@ class Gossip {
                 if (is_array($peersNode) && !empty($peersNode)) {
                     foreach ($peersNode as $peer) {
                         if (trim($this->ip) . ":" . trim($this->port) != trim($peer->ip) . ":" . trim($peer->port)) {
-                            $this->_addPeer(trim($peer->ip), trim($peer->port));
+                            $this->_addPeer(trim($peer->ip), trim($peer->port),false);
                         }
                     }
                 }
