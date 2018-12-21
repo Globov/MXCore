@@ -453,7 +453,7 @@ class DB {
 
             //SQL Insert Block
             $sql_insert_block = "INSERT INTO blocks (height,block_previous,block_hash,root_merkle,nonce,timestamp_start_miner,timestamp_end_miner,difficulty,version,info)
-            VALUES (".$blockNum.",'".$block_previous."','".$blockInfo->hash."','".$blockInfo->merkle."','".$blockInfo->nonce."','".$blockInfo->timestamp."','".$blockInfo->timestamp_end."','".$blockInfo->difficulty."','1','".SQLite3::escapeString(@serialize($blockInfo->info))."');";
+            VALUES (".$blockNum.",'".$block_previous."','".$blockInfo->hash."','".$blockInfo->merkle."','".$blockInfo->nonce."','".$blockInfo->timestamp."','".$blockInfo->timestamp_end."','".$blockInfo->difficulty."','1','".$this->db->real_escape_string(@serialize($blockInfo->info))."');";
 
             if ($this->db->query($sql_insert_block)) {
 
