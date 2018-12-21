@@ -70,14 +70,14 @@ class Gossip {
         Display::_printer("PeerID %G%".Tools::GetIdFromIpAndPort($ip,$port));
 
         if (!extension_loaded("mysqli")) {
-            Display::_printer("%LR%ERROR%W%    Debes instalar la extension %LG%sqlite3");
+            Display::_printer("%LR%ERROR%W%    You must install the extension %LG%mysqli");
             if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN')
                 readline("Press any Enter to close close window");
             exit();
         }
 
         if (!extension_loaded("bcmath")) {
-            Display::_printer("%LR%ERROR%W%    Debes instalar la extension %LG%bcmath");
+            Display::_printer("%LR%ERROR%W%    You must install the extension %LG%bcmath");
             if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN')
                 readline("Press any Enter to close close window");
             exit();
