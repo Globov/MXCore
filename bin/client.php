@@ -22,6 +22,7 @@
 // SOFTWARE.
 //
 
+include('../CONFIG.php');
 include('../src/State.php');
 include('../src/DB.php');
 include('../src/BootstrapNode.php');

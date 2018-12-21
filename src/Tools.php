@@ -117,14 +117,15 @@ class Tools {
      * @return mixed|string
      */
 
-    public static function postContent($url, $data, $timeout = 60, $username = null, $password = null)
+    public static function postContent($url, $data, $timeout = 20, $username = null, $password = null)
     {
         $postdata = http_build_query($data);
         $opts = array('http' =>
             array(
                 'method'  => 'POST',
                 'header'  => 'Content-type: application/x-www-form-urlencoded',
-                'content' => $postdata
+                'content' => $postdata,
+                'timeout' => $timeout,
             )
         );
 

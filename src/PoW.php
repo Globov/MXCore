@@ -82,9 +82,6 @@ class PoW {
                         //We obtain the number of the block to be entered
                         $numBlock = $chaindata->GetNextBlockNum();
 
-                        //We add the block to the chaindata and the blockchain
-                        $chaindata->addBlock($numBlock,$blockMinedByPeer);
-
                         //We add the block to the blockchain and it will return us if the difficulty has been modified
                         $changedDifficulty = $blockchain->add($blockMinedByPeer);
 

@@ -27,6 +27,7 @@ class Block {
     public $nonce;
     public $hash;
     public $transactions;
+    public $merkle;
     public $timestamp;
     public $timestamp_end;
     public $difficulty;
@@ -45,7 +46,7 @@ class Block {
      * @param null $timestamp_end
      * @param null $info
      */
-    public function __construct($previous,$difficulty,$transactions = array(),&$blockchain=null,$mined=false,$hash=null,$nonce=0,$timestamp=null,$timestamp_end=null,$info = null) {
+    public function __construct($previous,$difficulty,$transactions = array(),&$blockchain=null,$mined=false,$hash=null,$nonce=0,$timestamp=null,$timestamp_end=null,$merkle=null,$info = null) {
 
         $this->transactions = $transactions;
         $this->difficulty = $difficulty;
@@ -57,6 +58,7 @@ class Block {
             $this->nonce = $nonce;
             $this->timestamp = $timestamp;
             $this->timestamp_end = $timestamp_end;
+            $this->merkle = $merkle;
             $this->info = $info;
         }
         else {
@@ -69,8 +71,8 @@ class Block {
 
             //We establish the information of the blockchain
             $this->info = array(
-                'current_blocks_difficulty' => $blockchain->blocks_count_reset+1,
-                'current_blocks_halving' => $blockchain->blocks_count_halving+1,
+                'current_blocks_difficulty' => $blockchain->GetLastBlock()->info['current_blocks_difficulty']+1,
+                'current_blocks_halving' => $blockchain->GetLastBlock()->info['current_blocks_halving']+1,
                 'max_difficulty' => '0000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',
                 'num_blocks_to_change_difficulty' => 2016,
                 'num_blocks_to_halving' => 250000,
@@ -121,10 +123,15 @@ class Block {
 
         //We started mining
         $this->nonce = PoW::findNonce($data,$this->previous,$this->difficulty,$blockchain);
-        if ($this->nonce !== false)
+        if ($this->nonce !== false) {
+            //Make hash and merkle for this block
             $this->hash = PoW::hash($data.$this->nonce);
-        else
+            $this->merkle = PoW::hash($data.$this->nonce.$this->hash);
+        }
+        else {
             $this->hash = "";
+            $this->merkle = "";
+        }
 
     }
 

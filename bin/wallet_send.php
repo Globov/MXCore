@@ -22,6 +22,7 @@
 // SOFTWARE.
 //
 
+include('../CONFIG.php');
 include('../src/DB.php');
 include('../src/ArgvParser.php');
 include('../src/ColorsCLI.php');

@@ -69,7 +69,7 @@ class Gossip {
         Display::_printer("Listening on %G%".$ip."%W%:%G%".$port);
         Display::_printer("PeerID %G%".Tools::GetIdFromIpAndPort($ip,$port));
 
-        if (!extension_loaded("sqlite3")) {
+        if (!extension_loaded("mysqli")) {
             Display::_printer("%LR%ERROR%W%    Debes instalar la extension %LG%sqlite3");
             if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN')
                 readline("Press any Enter to close close window");
@@ -106,6 +106,13 @@ class Gossip {
 
         //We create the Wallet for the node
         $this->key = new Key(Wallet::LoadOrCreate('coinbase',null));
+
+        if (strlen($this->key->pubKey) != 451) {
+            Display::_printer("%LR%ERROR%W% Can't get the public/private key");
+            Display::_printer("%LR%ERROR%W% Make sure you have openssl installed and activated in php");
+            exit();
+        }
+
         $this->coinbase = Wallet::GetWalletAddressFromPubKey($this->key->pubKey);
 
         Display::_printer("Coinbase detected: %LG%".$this->coinbase);
@@ -120,7 +127,7 @@ class Gossip {
         //WE GENERATE THE GENESIS BLOCK
         if ($make_genesis_block) {
             //We check that there is no block GENESIS
-            $GENESIS_block_chaindata = $this->chaindata->db->querySingle("SELECT height, block_hash FROM blocks WHERE height = 0",true);
+            $GENESIS_block_chaindata = $this->chaindata->db->query("SELECT height, block_hash FROM blocks WHERE height = 0")->fetch_assoc();
             if (empty($GENESIS_block_chaindata)) {
                 //we show the message that we generated the GENESIS block
                 Display::_printer("Generating %G%GENESIS%W% - Block %G%#0");
@@ -240,6 +247,7 @@ class Gossip {
                             $genesis_block_bootstrap->nonce,
                             $genesis_block_bootstrap->timestamp_start_miner,
                             $genesis_block_bootstrap->timestamp_end_miner,
+                            $genesis_block_bootstrap->root_merkle,
                             $infoBlock
                         );
 
@@ -472,6 +480,9 @@ class Gossip {
                     //We send all pending transactions to the network
                     $this->sendPendingTransactionsToNetwork();
 
+                    //We check the difficulty of the network
+                    $this->state->blockchain->checkDifficulty();
+
                     //We mine the block
                     if ($this->enable_mine) {
                         $mined = Miner::MineNewBlock($this);
@@ -481,10 +492,12 @@ class Gossip {
                             //We get the block mined by another user
                             $blockMinedByPeer = $this->state->blockchain->GetLastBlock();
 
+                            /*
                             //We load the information of the difficulty and counting of blocks with the information of the mined block
                             $this->state->blockchain->difficulty = $blockMinedByPeer->difficulty;
                             $this->state->blockchain->blocks_count_reset = $blockMinedByPeer->info['current_blocks_difficulty'];
                             $this->state->blockchain->blocks_count_halving = $blockMinedByPeer->info['current_blocks_halving'];
+                            */
                         }
 
                         //We wait 2 - 2.5 seconds before continuing
@@ -522,8 +535,6 @@ class Gossip {
 
                                 //We load the information of the difficulty and counting of blocks with the information of the mined block
                                 $this->state->blockchain->difficulty = $blockMinedByPeer->difficulty;
-                                $this->state->blockchain->blocks_count_reset = $blockMinedByPeer->info['current_blocks_difficulty'];
-                                $this->state->blockchain->blocks_count_halving = $blockMinedByPeer->info['current_blocks_halving'];
 
                                 //We add the block to the chaindata and the blockchain
                                 $this->chaindata->addBlock($numBlock,$blockMinedByPeer);
@@ -584,6 +595,7 @@ class Gossip {
                                 $object->nonce,
                                 $object->timestamp_start_miner,
                                 $object->timestamp_end_miner,
+                                $object->root_merkle,
                                 $infoBlock
                             );
 
@@ -595,6 +607,8 @@ class Gossip {
                                 $this->chaindata->addBlock($object->height,$block);
 
                                 $blocksSynced++;
+                            } else {
+                                Display::_printer("BLOCK: " . $block->hash . " NO VALID");
                             }
                         }
                         Display::_printer("%Y%Imported%W% new blocks headers               %G%count%W%=".$blocksSynced);
@@ -603,8 +617,6 @@ class Gossip {
 
                         //We synchronize the information of the blockchain
                         $this->state->blockchain->difficulty = $this->state->blockchain->GetLastBlock()->difficulty;
-                        $this->state->blockchain->blocks_count_reset = $this->state->blockchain->GetLastBlock()->info['current_blocks_difficulty'];
-                        $this->state->blockchain->blocks_count_halving = $this->state->blockchain->GetLastBlock()->info['current_blocks_halving'];
 
                         //We check the difficulty
                         $this->state->blockchain->checkDifficulty();
@@ -696,7 +708,7 @@ class Gossip {
                 $infoToSend = array(
                     'action' => 'MINEDBLOCK',
                     'hash_previous' => $blockMined->previous,
-                    'block' => SQLite3::escapeString(@serialize($blockMined))
+                    'block' => @serialize($blockMined)
                 );
 
                 if ($peer["ip"] == "blockchain.mataxetos.es") {

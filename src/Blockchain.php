@@ -26,8 +26,6 @@ class Blockchain {
 
     public $blocks = [];
     public $difficulty;
-    public $blocks_count_reset;
-    public $blocks_count_halving;
 
     /**
      * Blockchain constructor.
@@ -41,8 +39,6 @@ class Blockchain {
         if ($newBC) {
 
             $this->difficulty = 1;
-            $this->blocks_count_reset = 0;
-            $this->blocks_count_halving = 0;
 
             //We mine the GENESIS Block
             $this->blocks[] = Block::createGenesis($coinbase,$privKey,$amount,$this);
@@ -87,13 +83,6 @@ class Blockchain {
 
         //We add the block to the block chain
         $this->blocks[] = $block;
-
-        //We increase the number of blocks processed for the reset of the difficulty and the reward halving
-        $this->blocks_count_reset++;
-        $this->blocks_count_halving++;
-
-        //We check the difficulty of the network
-        return $this->checkDifficulty();
     }
 
     /**
@@ -109,13 +98,6 @@ class Blockchain {
         //We add the block to the block chain
         $this->blocks[$blockID] = $block;
 
-
-        //We increase the number of blocks processed for the reset of the difficulty and the reward halving
-        if ($counting) {
-            $this->blocks_count_reset++;
-            $this->blocks_count_halving++;
-        }
-
         //We check the difficulty of the network
         return $this->checkDifficulty();
     }
@@ -126,10 +108,11 @@ class Blockchain {
      * @return bool
      */
     public function checkDifficulty() {
-        if ($this->blocks_count_reset >= $this->blocks[0]->info['num_blocks_to_change_difficulty']) {
+        if ($this->GetLastBlock()->info['current_blocks_difficulty'] >= $this->blocks[0]->info['num_blocks_to_change_difficulty']) {
 
             //We obtain the number of minutes in which the previous 2016 blocks have been mined
             $minutesMinedLast2016Blocks = round(abs($this->blocks[(count($this->blocks)-$this->blocks[0]->info['num_blocks_to_change_difficulty'])]->timestamp - $this->blocks[(count($this->blocks) - 1)]->timestamp) / 60,0);
+            //$minutesMinedLast2016Blocks = round(abs($this->blocks[1]->timestamp - $this->blocks[(count($this->blocks) - 1)]->timestamp) / 60,0);
 
             if ($minutesMinedLast2016Blocks <= 0)
                 $minutesMinedLast2016Blocks = 1;
@@ -144,9 +127,6 @@ class Blockchain {
             //The difficulty can not be less than 1 because, if not the target of cut for validity, a hash would exceed the maximum hash
             if ($this->difficulty < 1)
                 $this->difficulty = 1;
-
-            //We reset the counter
-            $this->blocks_count_reset = 0;
 
             return true;
         }
@@ -171,12 +151,12 @@ class Blockchain {
         //If we have block information, we will import them into a new BlockChain
         if (!empty($blocks_chaindata)) {
             $height = 0;
-            while ($blockInfo = $blocks_chaindata->fetchArray(SQLITE3_ASSOC)) {
+            while ($blockInfo = $blocks_chaindata->fetch_array(MYSQLI_ASSOC)) {
 
                 $transactions_chaindata = $chaindata->db->query("SELECT * FROM transactions WHERE block_hash = '".$blockInfo['block_hash']."';");
                 $transactions = array();
                 if (!empty($transactions_chaindata)) {
-                    while ($transactionInfo = $transactions_chaindata->fetchArray(SQLITE3_ASSOC)) {
+                    while ($transactionInfo = $transactions_chaindata->fetch_array(MYSQLI_ASSOC)) {
 
                         $transactions[] = new Transaction(
                             $transactionInfo["wallet_from_key"],
@@ -204,6 +184,7 @@ class Blockchain {
                     $blockInfo['nonce'],
                     $blockInfo['timestamp_start_miner'],
                     $blockInfo['timestamp_end_miner'],
+                    $blockInfo['root_merkle'],
                     @unserialize($blockInfo['info'])
                 );
             }
@@ -217,12 +198,8 @@ class Blockchain {
         //If the blockchain has blocks
         if ($bc->count() > 0) {
             $bc->difficulty = $bc->GetLastBlock()->difficulty;
-            $bc->blocks_count_reset = $bc->GetLastBlock()->info['current_blocks_difficulty'];
-            $bc->blocks_count_halving = $bc->GetLastBlock()->info['current_blocks_halving'];
         } else {
             $bc->difficulty = 1;
-            $bc->blocks_count_reset = 1;
-            $bc->blocks_count_halving = 1;
         }
 
         return $bc;

@@ -106,7 +106,7 @@ class Wallet {
 
         $totalReceived_tmp = $chaindata->db->query("SELECT amount FROM transactions WHERE wallet_to = '".$address."';");
         if (!empty($totalReceived_tmp)) {
-            while ($txnInfo = $totalReceived_tmp->fetchArray(SQLITE3_ASSOC)) {
+            while ($txnInfo = $totalReceived_tmp->fetch_array(MYSQLI_ASSOC)) {
                 $totalReceived = bcadd($totalReceived, $txnInfo['amount'], 8);
             }
         }
@@ -114,21 +114,21 @@ class Wallet {
         //Obtenemos lo que ha gastado el usuario (pendiente o no de tramitar)
         $totalSpended_tmp = $chaindata->db->query("SELECT amount FROM transactions WHERE wallet_from = '".$address."';");
         if (!empty($totalSpended_tmp)) {
-            while ($txnInfo = $totalSpended_tmp->fetchArray(SQLITE3_ASSOC)) {
+            while ($txnInfo = $totalSpended_tmp->fetch_array(MYSQLI_ASSOC)) {
                 $totalSpend = bcadd($totalSpend, $txnInfo['amount'], 8);
             }
         }
 
         $totalSpendedPending_tmp = $chaindata->db->query("SELECT amount FROM transactions_pending WHERE wallet_from = '".$address."';");
         if (!empty($totalSpendedPending_tmp)) {
-            while ($txnInfo = $totalSpendedPending_tmp->fetchArray(SQLITE3_ASSOC)) {
+            while ($txnInfo = $totalSpendedPending_tmp->fetch_array(MYSQLI_ASSOC)) {
                 $totalSpend = bcadd($totalSpend, $txnInfo['amount'], 8);
             }
         }
 
         $totalSpendedPendingToSend_tmp = $chaindata->db->query("SELECT amount FROM transactions_pending_to_send WHERE wallet_from = '".$address."';");
         if (!empty($totalSpendedPendingToSend_tmp)) {
-            while ($txnInfo = $totalSpendedPendingToSend_tmp->fetchArray(SQLITE3_ASSOC)) {
+            while ($txnInfo = $totalSpendedPendingToSend_tmp->fetch_array(MYSQLI_ASSOC)) {
                 $totalSpend = bcadd($totalSpend, $txnInfo['amount'], 8);
             }
         }
