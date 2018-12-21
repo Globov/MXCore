@@ -8,16 +8,17 @@ PoW sha256
 - Open ports for p2p connection
 - Apache web server
 - OpenSSL
+- MySQL Server
 - PHP 7.0 or higher
 - PHP Extensions:
-  - php_sqlite3
+  - php_mysqli
   - php_bcmath
   - php_curl
   
 # Plans
-- Migrate form SQLite to MySQL
-- Add Merkle Tree
-- Improve Explorer
+~~- Migrate form SQLite to MySQL~~
+~~- Add Merkle Tree~~
+~~- Improve Explorer~~
 - Make MX Console Client
 - Make testnet
 - Add more bootstrap nodes
@@ -30,6 +31,7 @@ https://blockchain.mataxetos.es/
 
 # How run
 - Clone repository on root website folder
+- Edit CONFIG.php and set MySQL info
 - Edit apache2.conf (Default: /etc/apache2/apache2.conf) and change:
 ```
     <Directory /var/www/>
