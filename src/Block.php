@@ -69,10 +69,20 @@ class Block {
 
             $this->mine($blockchain);
 
+            $currentBlocksDifficulty = $blockchain->GetLastBlock()->info['current_blocks_difficulty']+1;
+            if ($currentBlocksDifficulty > $blockchain->blocks[0]->info['num_blocks_to_change_difficulty']) {
+                $currentBlocksDifficulty = 1;
+            }
+
+            $currentBlocksHalving = $blockchain->GetLastBlock()->info['current_blocks_halving']+1;
+            if ($currentBlocksDifficulty > $blockchain->blocks[0]->info['num_blocks_to_halving']) {
+                $currentBlocksDifficulty = 1;
+            }
+
             //We establish the information of the blockchain
             $this->info = array(
-                'current_blocks_difficulty' => $blockchain->GetLastBlock()->info['current_blocks_difficulty']+1,
-                'current_blocks_halving' => $blockchain->GetLastBlock()->info['current_blocks_halving']+1,
+                'current_blocks_difficulty' => $currentBlocksDifficulty,
+                'current_blocks_halving' => $currentBlocksHalving,
                 'max_difficulty' => '0000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',
                 'num_blocks_to_change_difficulty' => 2016,
                 'num_blocks_to_halving' => 250000,
