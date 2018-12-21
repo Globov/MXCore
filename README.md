@@ -7,6 +7,7 @@ PoW sha256
 
 - Open ports for p2p connection
 - Apache web server
+- OpenSSL
 - PHP 7.0 or higher
 - PHP Extensions:
   - php_sqlite3
@@ -14,6 +15,8 @@ PoW sha256
   - php_curl
   
 # Plans
+- Migrate form SQLite to MySQL
+- Add Merkle Tree
 - Improve Explorer
 - Make MX Console Client
 - Make testnet
