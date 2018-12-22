@@ -202,8 +202,8 @@ class DB {
      * @param $hash
      * @return array
      */
-    public function GetTransactionsByWallet($wallet) {
-        $transactions_chaindata = $this->db->query("SELECT * FROM transactions WHERE wallet_to = '".$wallet."' OR wallet_from = '".$wallet."' ORDER BY timestamp DESC;");
+    public function GetTransactionsByWallet($wallet,$limit=50) {
+        $transactions_chaindata = $this->db->query("SELECT * FROM transactions WHERE wallet_to = '".$wallet."' OR wallet_from = '".$wallet."' ORDER BY timestamp DESC LIMIT ".$limit.";");
         $transactions = array();
         if (!empty($transactions_chaindata)) {
             while ($transactionInfo = $transactions_chaindata->fetch_array(MYSQLI_ASSOC)) {
@@ -554,6 +554,35 @@ class DB {
     public function GetGenesisBlock() {
         $genesis_block = null;
         $blocks_chaindata = $this->db->query("SELECT * FROM blocks WHERE height = 0");
+        //If we have block information, we will import them into a new BlockChain
+        if (!empty($blocks_chaindata)) {
+            while ($blockInfo = $blocks_chaindata->fetch_array(MYSQLI_ASSOC)) {
+
+                $transactions_chaindata = $this->db->query("SELECT * FROM transactions WHERE block_hash = '".$blockInfo['block_hash']."';");
+                $transactions = array();
+                if (!empty($transactions_chaindata)) {
+                    while ($transactionInfo = $transactions_chaindata->fetch_array(MYSQLI_ASSOC)) {
+                        $transactions[] = $transactionInfo;
+                    }
+                }
+
+                $blockInfo["transactions"] = $transactions;
+
+                $genesis_block = $blockInfo;
+            }
+        }
+        return $genesis_block;
+
+    }
+
+    /**
+     * Returns last block
+     *
+     * @return mixed
+     */
+    public function GetLastBlock() {
+        $genesis_block = null;
+        $blocks_chaindata = $this->db->query("SELECT * FROM blocks ORDER BY height DESC LIMIT 1");
         //If we have block information, we will import them into a new BlockChain
         if (!empty($blocks_chaindata)) {
             while ($blockInfo = $blocks_chaindata->fetch_array(MYSQLI_ASSOC)) {

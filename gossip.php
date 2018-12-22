@@ -126,7 +126,11 @@ if (isset($_REQUEST)) {
                 $return['status'] = true;
             break;
         }
+
+        //Closing DB connection
+        $chaindata->db->close();
     }
 }
 echo @json_encode($return);
+exit();
 ?>
