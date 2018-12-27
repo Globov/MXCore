@@ -35,6 +35,7 @@ https://testnet.mataxetos.es/
 
 # How run
 - Clone repository on root website folder
+- Create a MySQL database UTF8
 - Edit CONFIG.php and set MySQL info & PHP Run command
 - Edit apache2.conf (Default: /etc/apache2/apache2.conf) and change:
 ```
