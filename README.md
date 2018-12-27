@@ -15,7 +15,7 @@ PoW sha256
   - php_bcmath
   - php_curl
   
-# Plans
+# TODO
 - ~~- Migrate form SQLite to MySQL~~
 - ~~- Add Merkle Tree~~
 - ~~- Improve Explorer~~
