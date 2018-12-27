@@ -92,7 +92,7 @@ $blockMined = new Block($previous_hash,$difficulty,$transactions,$lastBlock,$gen
 $blockMined->mine();
 
 //Send block to network
-Tools::sendBlockMinedToNetworkWithSubprocess($chaindata,$blockMined);
+Tools::sendBlockMinedToNetwork($chaindata,$blockMined);
 
 Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_NEW_BLOCK,@serialize($blockMined));
 die();
