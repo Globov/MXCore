@@ -83,6 +83,9 @@ if (@file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE
 if (!file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_TX_INFO))
     die('NO TX INFO');
 
+//Create "pid" file
+Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$startNonce,time());
+
 $transactions = @unserialize(@file_get_contents(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_TX_INFO));
 
 //We create the new block with info
@@ -92,7 +95,10 @@ $blockMined = new Block($previous_hash,$difficulty,$transactions,$lastBlock,$gen
 $blockMined->mine();
 
 //Send block to network
-Tools::sendBlockMinedToNetworkWithSubprocess($chaindata,$blockMined);
+Tools::sendBlockMinedToNetwork($chaindata,$blockMined);
 
 Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_NEW_BLOCK,@serialize($blockMined));
+
+//Delete "pid" file
+@unlink(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$startNonce);
 die();

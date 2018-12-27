@@ -30,6 +30,7 @@ class Subprocess {
     public static $FILE_PROPAGATE_BLOCK     = "PROPAGATE_BLOCK";
     public static $FILE_NEW_BLOCK           = "NEW_BLOCK";
     public static $FILE_MAIN_THREAD_CLOCK   = "main_thread_time";
+    public static $FILE_MINERS_THREAD_CLOCK = "miners_thread_time";
 
 
     /**

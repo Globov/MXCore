@@ -566,8 +566,42 @@ class Gossip {
                 //We mine the block
                 if ($this->enable_mine) {
                     //Enable Miners if not enabled
-                    if (@!file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_STARTED))
+                    if (@!file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_STARTED)){
                         Miner::MineNewBlock($this);
+
+                        //Wait 0.5s
+                        usleep(500000);
+                    }
+                    //Check if threads are enabled
+                    else {
+
+                        for($i=0;$i<MINER_MAX_SUBPROCESS;$i++){
+                            //Check if MinersThreads is alive
+                            if (@!file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$i) && @!file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_NEW_BLOCK)) {
+                                Display::_printer("The miner thread #".$i." do not seem to respond. Restarting Thread");
+
+                                //Get info to pass miner
+                                $lastBlock = $this->chaindata->GetLastBlock();
+                                $directoryProcessFile = Tools::GetBaseDir()."subprocess".DIRECTORY_SEPARATOR;
+
+                                $network = "mainnet";
+                                if ($this->isTestNet)
+                                    $network = "testnet";
+
+                                $params = array(
+                                    $lastBlock['block_hash'],
+                                    $this->difficulty,
+                                    $i,
+                                    MINER_MAX_SUBPROCESS,
+                                    $network
+                                );
+                                Subprocess::newProcess($directoryProcessFile,'miner',$params,$i);
+
+                                //Wait 0.5s
+                                usleep(500000);
+                            }
+                        }
+                    }
 
                     //If found new block
                     if (@file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_NEW_BLOCK)) {

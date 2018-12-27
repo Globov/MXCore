@@ -146,13 +146,10 @@ class Tools {
      * @param $checkIfExistAndDelete
      */
     public static function writeFile($file,$content='',$checkIfExistAndDelete = false) {
-        if ($checkIfExistAndDelete &&@file_exists($file))
+        if ($checkIfExistAndDelete && @file_exists($file))
             @unlink($file);
 
-        $f = @fopen($file,"w+");
-        @fwrite($f,$content);
-        @fclose($f);
-        @chmod($file, 0755);
+        @file_put_contents($file,$content);
     }
 
     /**
@@ -164,7 +161,6 @@ class Tools {
         @unlink(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_STARTED);
         @unlink(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_TX_INFO);
         @unlink(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_NEW_BLOCK);
-        @unlink(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_MAIN_THREAD_CLOCK);
     }
 
     /**
