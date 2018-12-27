@@ -20,18 +20,22 @@ PoW sha256
 - ~~- Add Merkle Tree~~
 - ~~- Improve Explorer~~
 - Make MX Console Client
-- Make testnet
+- ~~- Make testnet~~
+- ~~- Multithread~~
 - Add more bootstrap nodes
 - Add version system
 - Add PoolMinning system
   
-# Public Explorer MXCoin
+# Public Explorer MXCoin (MAINNET)
 
 https://blockchain.mataxetos.es/
 
+# Public Explorer MXCoin (TESTNET)
+https://testnet.mataxetos.es/
+
 # How run
 - Clone repository on root website folder
-- Edit CONFIG.php and set MySQL info
+- Edit CONFIG.php and set MySQL info & PHP Run command
 - Edit apache2.conf (Default: /etc/apache2/apache2.conf) and change:
 ```
     <Directory /var/www/>
@@ -53,6 +57,22 @@ For viewer node:
 ./node_viewer.sh
 ```
   
+# CLIENT available arguments
+|ARGUMENT   	|Description   	|
+|---	|---	|
+|user   	|Set the node user name   	|
+|ip   	|Set the IP that the node will use   	|
+|port   	|Set the port that the node will use   	|
+|mine   	|Activate mining mode   	|
+|testnet   	|Connect to TESTNET network   	|
+
+Examples of use:
+```
+php client.php -u USER1 -ip 0.0.0.0 -port 8080
+php client.php -u USER1 -ip 0.0.0.0 -port 8080 -mine
+php client.php -u USER1 -ip 0.0.0.0 -port 8080 -mine -testnet
+```
+
 # Discord server
 https://discord.gg/WNhJZuQ
 
