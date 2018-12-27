@@ -138,6 +138,120 @@ class Tools {
     }
 
     /**
+     * Write file with content
+     * If file exist,delete
+     *
+     * @param $file
+     * @param $content
+     * @param $checkIfExistAndDelete
+     */
+    public static function writeFile($file,$content='',$checkIfExistAndDelete = false) {
+        if ($checkIfExistAndDelete &&@file_exists($file))
+            @unlink($file);
+
+        $f = @fopen($file,"w+");
+        @fwrite($f,$content);
+        @fclose($f);
+        @chmod($file, 0755);
+    }
+
+    /**
+     * Clear TMP folder
+     */
+    public static function clearTmpFolder() {
+        @unlink(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_STOP_MINING);
+        @unlink(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_PROPAGATE_BLOCK);
+        @unlink(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_STARTED);
+        @unlink(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_TX_INFO);
+        @unlink(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_NEW_BLOCK);
+        @unlink(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_MAIN_THREAD_CLOCK);
+    }
+
+    /**
+     * @param DB $chaindata
+     * @param $blockMined
+     */
+    public static function sendBlockMinedToNetwork(&$chaindata,$blockMined) {
+        $peers = $chaindata->GetAllPeers();
+        foreach ($peers as $peer) {
+            $infoToSend = array(
+                'action'            => 'MINEDBLOCK',
+                'hash_previous'     => $blockMined->previous,
+                'block'             => @serialize($blockMined)
+            );
+
+            if ($peer["ip"] == NODE_BOOTSTRAP) {
+                Tools::postContent('https://'.NODE_BOOTSTRAP.'/gossip.php', $infoToSend,30);
+            }
+            else if ($peer["ip"] == NODE_BOOTSTRAP_TESTNET) {
+                Tools::postContent('https://'.NODE_BOOTSTRAP_TESTNET.'/gossip.php', $infoToSend,30);
+            }
+            else {
+                Tools::postContent('http://' . $peer['ip'] . ':' . $peer['port'] . '/gossip.php', $infoToSend,30);
+            }
+        }
+    }
+
+    /**
+     * @param DB $chaindata
+     * @param Block $blockMined
+     */
+    public static function sendBlockMinedToNetworkWithSubprocess(&$chaindata,$blockMined) {
+
+        //Write block cache for propagation subprocess
+        Tools::writeFile(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_PROPAGATE_BLOCK,@serialize($blockMined));
+
+        if (DISPLAY_DEBUG) {
+            $mini_hash = substr($blockMined->hash,-12);
+            $mini_hash_previous = substr($blockMined->previous,-12);
+
+            Display::_debug("sendBlockMinedToNetworkWithSubprocess  %G%previous%W%=".$mini_hash_previous."  %G%hash%W%=".$mini_hash);
+        }
+
+        //Run subprocess propagation per peer
+        $peers = $chaindata->GetAllPeers();
+        $id = 0;
+        foreach ($peers as $peer) {
+            //Params for subprocess
+            $params = array(
+                $peer['ip'],
+                $peer['port']
+            );
+
+            //Run subprocess propagation
+            Subprocess::newProcess(Tools::GetBaseDir()."subprocess".DIRECTORY_SEPARATOR,'propagate',$params,$id);
+
+            $id++;
+        }
+    }
+
+    /**
+     * We create the base directories (if they did not exist)
+     */
+    public static function MakeDataDirectory() {
+
+        Display::_printer("Data directory: %G%".Tools::GetBaseDir()."data".DIRECTORY_SEPARATOR);
+
+        if (!@file_exists(Tools::GetBaseDir().DIRECTORY_SEPARATOR."data".DIRECTORY_SEPARATOR."wallets"))
+            @mkdir(Tools::GetBaseDir().DIRECTORY_SEPARATOR."data".DIRECTORY_SEPARATOR."wallets",755, true);
+    }
+
+    /**
+     * Get base directory
+     *
+     * @return mixed|string
+     */
+    public static function GetBaseDir() {
+        $dir = __DIR__;
+        $dir = str_replace('src',       "",$dir);
+        $dir = str_replace('data',      "",$dir);
+        $dir = str_replace('cli',       "",$dir);
+        $dir = str_replace('bin',       "",$dir);
+        $dir = str_replace('subprocess',"",$dir);
+        return $dir;
+    }
+
+    /**
      * Send a CURL POST message to a destination
      *
      * @param $url

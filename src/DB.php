@@ -32,7 +32,7 @@ class DB {
     public function __construct() {
 
         //We create or load the database
-        $this->db = new mysqli(DB_HOST,DB_USER,DB_PASS,DB_NAME);
+        $this->db = new mysqli(DB_HOST,DB_USER,DB_PASS,DB_NAME, DB_PORT);
 
         //We check if the tables needed for the blockchain are created
         $this->CheckIfExistTables();
@@ -46,6 +46,16 @@ class DB {
         if ($this->db->query("TRUNCATE TABLE " . $table.";"))
             return true;
         return false;
+    }
+
+    public function GetConfig() {
+        $_CONFIG = array();
+        $query = $this->db->query("SELECT cfg, val FROM config");
+        if (!empty($query)) {
+            while ($cfg = $query->fetch_array(MYSQLI_ASSOC))
+                $_CONFIG[$cfg['cfg']] = trim($cfg['val']);
+        }
+        return $_CONFIG;
     }
 
     /**
@@ -114,6 +124,20 @@ class DB {
 
             return $info_block;
         }
+        return null;
+    }
+
+    /**
+     * Returns a block given a hash
+     *
+     * @param $hash
+     * @return array
+     */
+    public function GetBlockHeightByHash($hash) {
+        $sql = "SELECT height FROM blocks WHERE block_hash = '".$hash."' LIMIT 1;";
+        $info_block = $this->db->query($sql)->fetch_assoc();
+        if (!empty($info_block))
+            return $info_block;
         return null;
     }
 
@@ -396,7 +420,7 @@ class DB {
      */
     public function GetAllPeers() {
         $peers = array();
-        $peers_chaindata = $this->db->query("SELECT * FROM peers");
+        $peers_chaindata = $this->db->query("SELECT * FROM peers ORDER BY id");
         if (!empty($peers_chaindata)) {
             while ($peer = $peers_chaindata->fetch_array(MYSQLI_ASSOC)) {
                 $ip = str_replace("\r","",$peer['ip']);
@@ -485,15 +509,29 @@ class DB {
     /**
      * Add a block mined by a peer by saving the previous_hash and the mined block
      *
-     * @param $previous_hash
-     * @param $blockMined
+     * @param string $previous_hash
+     * @param Block $SerializedBlockMined
      * @return bool
      */
     public function AddMinedBlockByPeer($previous_hash, $blockMined) {
+        //Check if block is in table
         $info_mined_blocks_by_peer = $this->db->query("SELECT previous_hash FROM mined_blocks_by_peers WHERE previous_hash = '".$previous_hash."';")->fetch_assoc();
         if (empty($info_mined_blocks_by_peer)) {
-            if ($this->db->query("INSERT INTO mined_blocks_by_peers (previous_hash,block) VALUES ('".$previous_hash."', '".$blockMined."');"))
+            if ($this->db->query("INSERT INTO mined_blocks_by_peers (previous_hash,block) VALUES ('" . $previous_hash . "', '" . $blockMined . "');"))
                 return true;
+        }
+        return false;
+    }
+
+    /**
+     * Return array of mined blocks by peers
+     *
+     * @return bool|mixed
+     */
+    public function GetPeersMinedBlocks() {
+        $info_mined_blocks_by_peer = $this->db->query("SELECT previous_hash, block FROM mined_blocks_by_peers WHERE previous_hash = '';")->fetch_assoc();
+        if (!empty($info_mined_blocks_by_peer)) {
+            return $info_mined_blocks_by_peer;
         }
         return false;
     }

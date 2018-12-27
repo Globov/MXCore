@@ -1,3 +1,1 @@
-ip=$(curl ident.me)
-chmod -R 777 ../
-php client.php -user USER -ip $ip -port 80 -miner
+cd .. && php client.php -user USER -ip $(curl ident.me) -port 80 -miner

@@ -33,23 +33,32 @@ class Block {
     public $difficulty;
     public $info;
 
+    public $startNonce;
+    public $incrementNonce;
+
     /**
      * Block constructor.
      * @param $previous
      * @param $difficulty
      * @param array $transactions
-     * @param Blockchain $blockchain
+     * @param null $lastBlock
+     * @param null $genesisBlock
+     * @param int $startNonce
+     * @param int $incrementNonce
      * @param bool $mined
      * @param null $hash
      * @param int $nonce
      * @param null $timestamp
      * @param null $timestamp_end
+     * @param null $merkle
      * @param null $info
      */
-    public function __construct($previous,$difficulty,$transactions = array(),&$blockchain=null,$mined=false,$hash=null,$nonce=0,$timestamp=null,$timestamp_end=null,$merkle=null,$info = null) {
+    public function __construct($previous,$difficulty,$transactions = array(),$lastBlock=null,$genesisBlock=null,$startNonce=0,$incrementNonce=1,$mined=false,$hash=null,$nonce=0,$timestamp=null,$timestamp_end=null,$merkle=null,$info = null) {
 
         $this->transactions = $transactions;
         $this->difficulty = $difficulty;
+        $this->startNonce = $startNonce;
+        $this->incrementNonce = $incrementNonce;
 
         //If block is mined
         if ($mined) {
@@ -62,22 +71,18 @@ class Block {
             $this->info = $info;
         }
         else {
-            $this->previous = $previous ? $previous->hash : null;
+            $this->previous = (strlen($previous) > 0) ? $previous : null;
 
-            $date = new DateTime();
-            $this->timestamp = $date->getTimestamp();
+            $lastBlockInfo = @unserialize($lastBlock['info']);
+            $genesisBlockInfo = @unserialize($genesisBlock['info']);
 
-            $this->mine($blockchain);
-
-            $currentBlocksDifficulty = $blockchain->GetLastBlock()->info['current_blocks_difficulty']+1;
-            if ($currentBlocksDifficulty > $blockchain->blocks[0]->info['num_blocks_to_change_difficulty']) {
+            $currentBlocksDifficulty = $lastBlockInfo['current_blocks_difficulty']+1;
+            if ($currentBlocksDifficulty > $genesisBlockInfo['num_blocks_to_change_difficulty'])
                 $currentBlocksDifficulty = 1;
-            }
 
-            $currentBlocksHalving = $blockchain->GetLastBlock()->info['current_blocks_halving']+1;
-            if ($currentBlocksDifficulty > $blockchain->blocks[0]->info['num_blocks_to_halving']) {
+            $currentBlocksHalving = $lastBlockInfo['current_blocks_halving']+1;
+            if ($currentBlocksDifficulty > $genesisBlockInfo['num_blocks_to_halving'])
                 $currentBlocksDifficulty = 1;
-            }
 
             //We establish the information of the blockchain
             $this->info = array(
@@ -88,9 +93,6 @@ class Block {
                 'num_blocks_to_halving' => 250000,
                 'time_expected_to_mine' => 20160
             );
-
-            $date = new DateTime();
-            $this->timestamp_end = $date->getTimestamp();
         }
     }
 
@@ -100,10 +102,38 @@ class Block {
      * @param $coinbase
      * @param $privKey
      * @param $amount
+     * @param $isTestNet
      * @return Block
      */
-    public static function createGenesis($coinbase, $privKey, $amount, &$blockchain) {
-        return new self(null,1, array(new Transaction(null,$coinbase,$amount,$privKey,"")), "", $blockchain);
+    public static function createGenesis($coinbase, $privKey, $amount, $isTestNet=false) {
+        $transactions = array(new Transaction(null,$coinbase,$amount,$privKey,"",""));
+        //$genesisBlock = new Block("",1, $transactions);
+
+        Display::_printer("Start minning GENESIS block with " . count($transactions) . " txns - SubProcess: " . MINER_MAX_SUBPROCESS);
+
+        //Save transactions for this block
+        Tools::writeFile(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_TX_INFO,@serialize($transactions));
+        Tools::writeFile(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_STARTED);
+
+        //Get info to pass miner
+        $lastBlock_hash = "null";
+        $directoryProcessFile = Tools::GetBaseDir()."subprocess".DIRECTORY_SEPARATOR;
+
+        $network = "mainnet";
+        if ($isTestNet)
+            $network = "testnet";
+
+        //Start subprocess miners
+        for ($i = 0; $i < MINER_MAX_SUBPROCESS; $i++) {
+            $params = array(
+                $lastBlock_hash,
+                1,
+                $i,
+                MINER_MAX_SUBPROCESS,
+                $network
+            );
+            Subprocess::newProcess($directoryProcessFile,'miner',$params,$i);
+        }
     }
 
 
@@ -117,7 +147,10 @@ class Block {
      *
      * @param Blockchain $blockchain
      */
-    public function mine(&$blockchain) {
+    public function mine() {
+
+        $date = new DateTime();
+        $this->timestamp = $date->getTimestamp();
 
         //We prepare the transactions that will go in the block
         $data = "";
@@ -132,7 +165,7 @@ class Block {
         $data .= $this->previous;
 
         //We started mining
-        $this->nonce = PoW::findNonce($data,$this->previous,$this->difficulty,$blockchain);
+        $this->nonce = PoW::findNonce($data,$this->difficulty,$this->startNonce,$this->incrementNonce);
         if ($this->nonce !== false) {
             //Make hash and merkle for this block
             $this->hash = PoW::hash($data.$this->nonce);
@@ -142,6 +175,9 @@ class Block {
             $this->hash = "";
             $this->merkle = "";
         }
+
+        $date = new DateTime();
+        $this->timestamp_end = $date->getTimestamp();
 
     }
 
@@ -153,17 +189,14 @@ class Block {
      * @return bool
      */
     public function isValid() {
-
         $data = "";
         foreach ($this->transactions as $transaction) {
-            $transaction = Tools::objectToObject($transaction,"Transaction");
             if ($transaction->isValid())
                 $data = $transaction->message();
             else
                 return false;
         }
         $data .= $this->previous;
-
         return PoW::isValidNonce($data,$this->nonce,$this->difficulty, $this->info['max_difficulty']);
     }
 }

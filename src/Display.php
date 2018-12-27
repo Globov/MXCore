@@ -70,6 +70,18 @@ class Display {
     }
 
     /**
+     * Write a debug line in the CMD
+     * @param $string
+     */
+    public static function _debug($string) {
+        $date = new DateTime();
+        $formatted_string = "%Y%DEBUG%W% [".$date->format("m-d|H:i:s.u")."] ".$string."%W%".PHP_EOL;
+        $colored_string = self::_replaceColors($formatted_string);
+        echo $colored_string;
+        ob_flush();
+    }
+
+    /**
      * Line break
      */
     public static function _br() {
@@ -78,52 +90,29 @@ class Display {
 
     /**
      * Write a message of the mined block
-     * @param $gossip
+     * @param Block $blockMined
      */
-    public static function NewBlockMined(&$gossip) {
-        $lastBlock = $gossip->state->blockchain->GetLastBlock();
+    public static function NewBlockMined($blockMined) {
 
-        //Restamos -1 porque al minar el bloque se agrega en la blockchain
-        $lastBlockNum = $gossip->chaindata->GetNextBlockNum()-1;
-
-        $mini_hash = substr($lastBlock->hash,-12);
-        $mini_hash_previous = substr($lastBlock->previous,-12);
+        $mini_hash = substr($blockMined->hash,-12);
+        $mini_hash_previous = substr($blockMined->previous,-12);
 
         //Obtenemos la diferencia entre la creacion del bloque y la finalizacion del minado
         $minedTime = date_diff(
-            date_create(date('Y-m-d H:i:s', $lastBlock->timestamp)),
-            date_create(date('Y-m-d H:i:s', $lastBlock->timestamp_end))
+            date_create(date('Y-m-d H:i:s', $blockMined->timestamp)),
+            date_create(date('Y-m-d H:i:s', $blockMined->timestamp_end))
         );
         $blockMinedInSeconds = $minedTime->format('%im%ss');
 
-        self::_printer("%Y%Mined new block     ");
+        self::_printer("%Y%Mined%W% new block                          %G%nonce%W%=".$blockMined->nonce."        %G%elapsed%W%=".$blockMinedInSeconds."     %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash);
     }
 
     /**
      * Write a canceled block message
      * @param $gossip
      */
-    public static function NewBlockCancelled($numBlockMinedByPeer,$blockMinedByPeer) {
-        $mini_hash = substr($blockMinedByPeer->hash,-12);
-        $mini_hash_previous = substr($blockMinedByPeer->previous,-12);
-
-        //Obtenemos la diferencia entre la creacion del bloque y la finalizacion del minado
-        $minedTime = date_diff(
-            date_create(date('Y-m-d H:i:s', $blockMinedByPeer->timestamp)),
-            date_create(date('Y-m-d H:i:s', $blockMinedByPeer->timestamp_end))
-        );
-        $blockMinedInSeconds = $minedTime->format('%im%ss');
-
-        self::_printer("%Y%Miner work cancelled     %G%nonce%W%=".$blockMinedByPeer->nonce."   %G%elapsed%W%=".$blockMinedInSeconds."   %G%number%W%=".$numBlockMinedByPeer."   %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash);
-    }
-
-    /**
-     * We show the message that we started mining
-     *
-     * @param $gossip
-     */
-    public static function DisplayMinerScreen() {
-        self::_printer("Start Minning Blockchain...");
+    public static function NewBlockCancelled() {
+        self::_printer("%Y%Miner work cancelled, another miner found the block before");
     }
 }
 ?>

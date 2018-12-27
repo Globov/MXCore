@@ -22,3 +22,9 @@ web_header.tpl.php
 web_head.inc.php
 web_block.php
 index.php
+tmp/STOP_MINING
+tmp/MINERS_STARTED
+tmp/TX_INFO
+tmp/PROPAGATE_BLOCK
+tmp/NEW_BLOCK
+tmp/main_thread_time

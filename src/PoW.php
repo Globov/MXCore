@@ -32,75 +32,47 @@ class PoW {
     }
 
     /**
-     * Work test to find the hash that matches the current difficulty
+     * POW to find the hash that matches the current difficulty
      *
      * @param $message
-     * @param $previous_hash
      * @param $difficulty
-     * @param Blockchain $blockchain
-     * @return bool|int
+     * @param $startNonce
+     * @param $incrementNonce
+     * @return mixed
      */
-    public static function findNonce($message,$previous_hash,$difficulty,&$blockchain) {
+    public static function findNonce($message,$difficulty,$startNonce,$incrementNonce) {
+        $max_difficulty = "0000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
+        $nonce = $startNonce;
 
-        //Instanciamos el chaindata
-        $chaindata = new DB();
+        //Can't start subprocess with mainthread
+        if (!file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MAIN_THREAD_CLOCK))
+            die('MAINTHREAD NOT FOUND');
 
-        if ($blockchain->count() == 0)
-            $max_difficulty = "0000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
-        else
-            $max_difficulty = $blockchain->blocks[0]->info['max_difficulty'];
-
-        $nonce = 0;
         while(!self::isValidNonce($message,$nonce,$difficulty,$max_difficulty)) {
 
-            /*
-            if ($nonce > 0 && $nonce % 10000 == 0)
-                Display::_printer("Tried " . $nonce . " hashes");
-            */
-
-            //We check if we have a mined block that refers to the previous_hash
-            $peerMinedBlock = $chaindata->GetPeersMinedBlockByPrevious($previous_hash);
-
-            //If we do not have block mined by a peer, we will continue to mine
-            if ($peerMinedBlock === false) {
-                //We increased the nonce to continue in the search to solve the problem
-                ++$nonce;
-
-            //If we have a block mined by a peer, we will validate it
-            } else if (is_array($peerMinedBlock) && !empty($peerMinedBlock)) {
-                //We load the mined block
-                $blockMinedByPeer = Tools::objectToObject(@unserialize($peerMinedBlock['block']),"Block");
-                if ($blockMinedByPeer->previous != $previous_hash) {
-                    ++$nonce;
-                } else {
-                    if (!$blockMinedByPeer->isValid()) {
-                        ++$nonce;
-                    } else {
-                        //The block mined by the peer is valid, so we must stop mining this block
-                        $chaindata->RemovePeerMinedBlockByPrevious($previous_hash);
-
-                        //We obtain the number of the block to be entered
-                        $numBlock = $chaindata->GetNextBlockNum();
-
-                        //We add the block to the blockchain and it will return us if the difficulty has been modified
-                        $changedDifficulty = $blockchain->add($blockMinedByPeer);
-
-                        Display::NewBlockCancelled($numBlock,$blockMinedByPeer);
-
-                        //We add the block to the chaindata (DB)
-                        if ($chaindata->addBlock($numBlock,$blockMinedByPeer))
-                            return true;
-
-                        //Cortamos la POW
-                        return false;
-                    }
-                }
+            //Check if MainThread is alive
+            if (@file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MAIN_THREAD_CLOCK)) {
+                $mainThreadTime = @file_get_contents(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MAIN_THREAD_CLOCK);
+                $minedTime = date_diff(
+                    date_create(date('Y-m-d H:i:s', $mainThreadTime)),
+                    date_create(date('Y-m-d H:i:s', time()))
+                );
+                $diffTime = $minedTime->format('%s');
+                if ($diffTime >= MINER_TIMEOUT_CLOSE)
+                    die('MAINTHREAD NOT FOUND');
             }
-            //We increased the nonce to continue in the search to solve the problem
-            ++$nonce;
-        }
 
-        $chaindata->db->close();
+            //Quit-Files
+            if (@file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_STOP_MINING))
+                die('STOP MINNING');
+            if (@file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_NEW_BLOCK))
+                die('BLOCK FOUND');
+            if (!file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_TX_INFO))
+                die('NO TX INFO');
+
+            //We increased the nonce to continue in the search to solve the problem
+            $nonce += $incrementNonce;
+        }
         return $nonce;
     }
 
@@ -112,18 +84,13 @@ class PoW {
      * @return bool
      */
     public static function isValidNonce($message,$nonce,$difficulty,$maxDifficulty) {
-
         $hash = hash('sha256', $message.$nonce);
         $targetHash = bcdiv(Tools::hex2dec($maxDifficulty),$difficulty);
         $hashValue = Tools::hex2dec(strtoupper($hash));
 
         $result = bccomp($targetHash,$hashValue);
-
-        //Display::_printer('Hash num: '.$nonce.': '.strtoupper($hash));
-
-        if ($result === 1 || $result === 0) {
+        if ($result === 1 || $result === 0)
             return true;
-        }
         return false;
     }
 }

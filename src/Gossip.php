@@ -26,13 +26,16 @@ class Gossip {
 
     public $name;
     public $key;
-    public $state;
     public $port;
     public $ip;
     public $enable_mine;
     public $pending_transactions;
     public $coinbase;
     public $syncing;
+    public $config;
+    public $peers = array();
+    public $difficulty;
+    public $isTestNet;
 
     /** @var DB $object */
     public $chaindata;
@@ -45,6 +48,7 @@ class Gossip {
     private $peersRetrys = array();
 
     private $loop_x5 = 0;
+    private $loop_x10 = 0;
 
     /**
      * Gossip constructor
@@ -56,36 +60,23 @@ class Gossip {
      * @param bool $make_genesis_block
      * @param bool $bootstrap_node
      * @param bool $p2p_enabled
+     * @param bool $isTestNet
      */
-    public function __construct($name, $ip, $port, $enable_mine, $make_genesis_block=false, $bootstrap_node = false, $p2p_enabled = true)
+    public function __construct($db, $name, $ip, $port, $enable_mine, $make_genesis_block=false, $bootstrap_node = false, $p2p_enabled = true, $isTestNet=false)
     {
-        ob_start();
-
-        //Limpiamos la ventana
+        //Clear screen
         Display::ClearScreen();
 
-        Display::_printer("Welcome to the %G%PhpMx client");
-        Display::_printer("Maximum peer count                       %G%MX%W%=25 %G%total%W%=25");
+        //Init Display message
+        Display::_printer("Welcome to the %G%PhpMXC CLI - Version: " . VERSION);
+        Display::_printer("Maximum peer count                       %G%value%W%=".PEERS_MAX);
         Display::_printer("Listening on %G%".$ip."%W%:%G%".$port);
         Display::_printer("PeerID %G%".Tools::GetIdFromIpAndPort($ip,$port));
-
-        if (!extension_loaded("mysqli")) {
-            Display::_printer("%LR%ERROR%W%    You must install the extension %LG%mysqli");
-            if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN')
-                readline("Press any Enter to close close window");
-            exit();
-        }
-
-        if (!extension_loaded("bcmath")) {
-            Display::_printer("%LR%ERROR%W%    You must install the extension %LG%bcmath");
-            if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN')
-                readline("Press any Enter to close close window");
-            exit();
-        }
 
         $this->make_genesis = $make_genesis_block;
         $this->bootstrap_node = $bootstrap_node;
         $this->p2p_enabled = $p2p_enabled;
+        $this->isTestNet = $isTestNet;
 
         //We declare that we are not synchronizing
         $this->syncing = false;
@@ -94,12 +85,21 @@ class Gossip {
         $this->port = $port;
         $this->enable_mine = $enable_mine;
 
-        //We create the folder of data folders so that the node works
-        State::MakeDataDirectory();
+        //We create default folders
+        Tools::MakeDataDirectory();
 
-        //Instance the pointer to the chaindata
+        //Clear TMP files
+        Tools::clearTmpFolder();
+
+        //Default miners stopped
+        Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_STOP_MINING);
+
+        //Update MainThread time for subprocess
+        Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MAIN_THREAD_CLOCK,time());
+
+        //Instance the pointer to the chaindata and get config
         $this->chaindata = new DB();
-        Display::_printer("Loading chaindata");
+        $this->config = $this->chaindata->GetConfig();
 
         //We started with that we do not have pending transactions
         $this->pending_transactions = array();
@@ -112,13 +112,15 @@ class Gossip {
             Display::_printer("%LR%ERROR%W% Make sure you have openssl installed and activated in php");
             exit();
         }
-
         $this->coinbase = Wallet::GetWalletAddressFromPubKey($this->key->pubKey);
-
         Display::_printer("Coinbase detected: %LG%".$this->coinbase);
 
         //We cleaned the table of peers
-        $this->chaindata->truncate("peers");
+        if (!$this->bootstrap_node)
+            $this->chaindata->truncate("peers");
+
+        //We cleaned the table of blocks mined by peers
+        $this->chaindata->RemovePeerMinedBlocks();
 
         //By default we mark that we are not connected to the bootstrap and that we do not have ports open for P2P
         $this->connected_to_bootstrap = false;
@@ -126,154 +128,133 @@ class Gossip {
 
         //WE GENERATE THE GENESIS BLOCK
         if ($make_genesis_block) {
-            //We check that there is no block GENESIS
-            $GENESIS_block_chaindata = $this->chaindata->db->query("SELECT height, block_hash FROM blocks WHERE height = 0")->fetch_assoc();
-            if (empty($GENESIS_block_chaindata)) {
-                //we show the message that we generated the GENESIS block
-                Display::_printer("Generating %G%GENESIS%W% - Block %G%#0");
-                Display::_printer("Minning Block %G%#0");
-
-                //We created the Blockchain and we undermined the GENESIS block
-                $blockchain = new Blockchain($this->coinbase, $this->key->privKey,50);
-
-                //Once the blockchain has been created, it means that the first block has been mined, so we keep the block in the chaindata
-                $this->chaindata->addBlock(0,$blockchain->blocks[0]);
-
-                //We show the information of the mined block
-                Display::_printer("New Block mined with hash: %G%".$blockchain->blocks[0]->hash);
-                Display::_br();
-                Display::_printer("Nonce of Block: %G%".$blockchain->blocks[0]->nonce);
-                Display::_printer("Transactions in Block: %LG%".count($blockchain->blocks[0]->transactions));
-
-                Display::_printer("%G%GENESIS%W% Block was successfully generated");
-                Display::_br();
-                if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN')
-                    readline("Press any Enter to close close window");
-                exit();
-            } else {
-                //we show the message that there is already a block genesis
-                Display::_printer("%LR%ERROR");
-                Display::_printer("There is alrady exist a %G%GENESIS%W% Block");
-                Display::_printer("Block #0 -> Hash: %LG%".$GENESIS_block_chaindata['hash']);
-                if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN')
-                    readline("Press any key to close close window");
-                exit();
-            }
+            if(!$isTestNet)
+                GenesisBlock::make($this->chaindata,$this->coinbase,$this->key->privKey,$this->isTestNet,"50");
+            else
+                GenesisBlock::make($this->chaindata,$this->coinbase,$this->key->privKey,$this->isTestNet,"99999999999999999999999999999999");
         }
 
         //We are a BOOTSTRAP node
         else if ($bootstrap_node) {
-            Display::_printer("%Y%BOOTSTRAP NODE %W%loaded successfully");
-            //We try to load the local node information
-            $blockchain = Blockchain::loadFromChaindata($this->chaindata);
-            $this->state = new State($name,$blockchain,$this->chaindata);
+            if ($this->isTestNet)
+                Display::_printer("%Y%BOOTSTRAP NODE %W%(%G%TESTNET%W%) loaded successfully");
+            else
+                Display::_printer("%Y%BOOTSTRAP NODE %W%loaded successfully");
 
-            //Remove Blocks mineds by peers
-            //$this->chaindata->RemovePeerMinedBlocks();
+            Display::_printer("Height: %G%".$this->chaindata->GetNextBlockNum());
 
-            Display::_printer("Blockchain loaded successfully");
-            Display::_printer("Height: %G%".$blockchain->count());
-            Display::_printer("LastBlock: %G%".$blockchain->GetLastBlock()->hash);
-            Display::_printer("Difficulty: %G%".$blockchain->difficulty);
-            Display::_printer("MaxDifficulty: %G%".$blockchain->blocks[0]->info['max_difficulty']);
+            $lastBlock = $this->chaindata->GetLastBlock();
+
+            Display::_printer("LastBlock: %G%".$lastBlock['block_hash']);
+            Display::_printer("Difficulty: %G%".$lastBlock['difficulty']);
+
+            $this->difficulty = $lastBlock['difficulty'];
+
+            //Check peers status
+            $this->CheckConnectionWithPeers();
         }
 
         //If we already have information, we establish the loaded state
         else {
             //We connect to the Bootstrap node
-            if ($this->_addBootstrapNode('blockchain.mataxetos.es','80')) {
+            if ($this->_addBootstrapNode()) {
                 $this->connected_to_bootstrap = true;
 
                 //If we have activated p2p mode (by default it is activated) and we do not have open ports, we can not continue
                 if ($this->p2p_enabled && !$this->openned_ports) {
                     Display::_printer("%LR%ERROR%W%    Impossible to establish a P2P connection");
                     Display::_printer("%LR%ERROR%W%    Check that it is accessible from the internet: %Y%http://".$this->ip.":".$this->port);
-                    if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN')
-                        readline("");
+                    if (IS_WIN)
+                        readline("Press any Enter to close close window");
                     exit();
                 }
 
                 //We ask the BootstrapNode to give us the information of the connected peers
-                $peersNode = BootstrapNode::GetPeers($this->chaindata);
+                $peersNode = BootstrapNode::GetPeers($this->chaindata,$this->isTestNet);
                 if (is_array($peersNode) && !empty($peersNode)) {
-                    foreach ($peersNode as $peer) {
-                        if (trim($this->ip).":".trim($this->port) != trim($peer->ip).":".trim($peer->port)) {
-                            $this->_addPeer(trim($peer->ip),trim($peer->port));
+
+                    $maxRand = PEERS_MAX;
+                    if (count($peersNode) < PEERS_MAX)
+                        $maxRand = count($peersNode);
+
+                    $randomPeers = array_rand($peersNode,$maxRand);
+                    if (is_array($randomPeers)) {
+                        foreach ($randomPeers as $randomPeer) {
+                            if (trim($this->ip).":".trim($this->port) != trim($peersNode[$randomPeer]->ip).":".trim($peersNode[$randomPeer]->port)) {
+                                if (count($this->peers) < PEERS_MAX) {
+                                    $this->_addPeer(trim($peersNode[$randomPeer]->ip),trim($peersNode[$randomPeer]->port));
+                                }
+                            }
+                        }
+                    } else {
+                        if (trim($this->ip).":".trim($this->port) != trim($peersNode[$randomPeers]->ip).":".trim($peersNode[$randomPeers]->port)) {
+                            if (count($this->peers) < PEERS_MAX) {
+                                $this->_addPeer(trim($peersNode[$randomPeers]->ip),trim($peersNode[$randomPeers]->port));
+                            }
                         }
                     }
                 }
 
-                //We get the last block from the BootstrapNode
-                $lastBlock = BootstrapNode::GetLastBlockNum($this->chaindata);
+                if (count($this->peers) < PEERS_REQUIRED) {
+                    Display::_printer("%LR%ERROR%W%    there are not enough peers       count=".count($this->peers)."   required=".PEERS_REQUIRED);
+                    if (IS_WIN)
+                        readline("Press any Enter to close close window");
+                    exit();
+                }
 
-                //We try to load the local node information
-                $blockchain = Blockchain::loadFromChaindata($this->chaindata);
+                //We get the last block from the BootstrapNode
+                $lastBlock_BootstrapNode = BootstrapNode::GetLastBlockNum($this->chaindata,$this->isTestNet);
+                $lastBlock_LocalNode = $this->chaindata->GetNextBlockNum();
+
 
                 //We check if we need to synchronize or not
-                if ($blockchain->count() < $lastBlock) {
+                if ($lastBlock_LocalNode < $lastBlock_BootstrapNode) {
+                    Display::_printer("%LR%DeSync detected %W%- Downloading blocks (%G%".$lastBlock_LocalNode."%W%/%Y%".$lastBlock_BootstrapNode.")");
+
                     //We declare that we are synchronizing
                     $this->syncing = true;
 
                     //If we do not have the GENESIS block, we download it from the BootstrapNode
-                    if ($blockchain->count() == 0) {
-                        $genesis_block_bootstrap = BootstrapNode::GetGenesisBlock($this->chaindata);
+                    if ($lastBlock_LocalNode == 0) {
+                        //Make Genesis from Peer
+                        $genesis_block_bootstrap = BootstrapNode::GetGenesisBlock($this->chaindata,$this->isTestNet);
+                        $genesisMakeBlockStatus = GenesisBlock::makeFromPeer($genesis_block_bootstrap,$this->chaindata);
 
-                        $transactions = array();
-                        if (!empty($genesis_block_bootstrap->transactions)) {
-                            foreach ($genesis_block_bootstrap->transactions as $transactionInfo) {
-                                $transactions[] = new Transaction(
-                                    $transactionInfo->wallet_from_key,
-                                    $transactionInfo->wallet_to,
-                                    $transactionInfo->amount,
-                                    null,
-                                    null,
-                                    true,
-                                    $transactionInfo->txn_hash,
-                                    $transactionInfo->signature,
-                                    $transactionInfo->timestamp
-                                );
-                            }
-                        }
-
-                        $infoBlock = @unserialize($genesis_block_bootstrap->info);
-
-                        $genesis_block = new Block(
-                            $genesis_block_bootstrap->block_previous,
-                            $genesis_block_bootstrap->difficulty,
-                            $transactions,
-                            $blockchainNull,
-                            true,
-                            $genesis_block_bootstrap->block_hash,
-                            $genesis_block_bootstrap->nonce,
-                            $genesis_block_bootstrap->timestamp_start_miner,
-                            $genesis_block_bootstrap->timestamp_end_miner,
-                            $genesis_block_bootstrap->root_merkle,
-                            $infoBlock
-                        );
-
-                        //We check if the received block is valid
-                        if ($genesis_block->isValid()) {
-                            //We add the GENESIS block to the local blockchain
-                            $this->chaindata->addBlock(0,$genesis_block);
-
-                            //We add the block to the blockchain
-                            $blockchain->addSync(0,$genesis_block);
+                        if ($genesisMakeBlockStatus)
+                            Display::_printer("%Y%Imported%W% GENESIS block header               %G%count%W%=1");
+                        else {
+                            Display::_printer("%LR%ERROR%W%    Can't make GENESIS block");
+                            if (IS_WIN)
+                                readline("Press any Enter to close close window");
+                            exit();
                         }
                     }
-                    $this->state = new State($name,$blockchain,$this->chaindata);
-                    $local_lastBlock = $this->state->blockchain->count();
-                    Display::_printer("%Y%Imported%W% new blocks headers               %G%count%W%=1");
                 } else {
-                    $this->state = new State($name,$blockchain,$this->chaindata);
-
-                    Display::_printer("Blockchain loaded successfully");
+                    Display::_printer("Blockchain up to date");
                     Display::_printer("Height: %G%".$this->chaindata->GetNextBlockNum());
-                    Display::_printer("LastBlock: %G%".$blockchain->GetLastBlock()->hash);
-                    Display::_printer("Difficulty: %G%".$blockchain->difficulty);
-                    Display::_printer("MaxDifficulty: %G%".$blockchain->blocks[0]->info['max_difficulty']);
+
+                    $lastBlock = $this->chaindata->GetLastBlock();
+
+                    Display::_printer("LastBlock: %G%".$lastBlock['block_hash']);
+                    Display::_printer("Difficulty: %G%".$lastBlock['difficulty']);
+
+                    $this->difficulty = $lastBlock['difficulty'];
+
                 }
+
+                //Check if have same GENESIS block from BootstrapNode
+                $genesis_block_bootstrap = BootstrapNode::GetGenesisBlock($this->chaindata,$this->isTestNet);
+                $genesis_block_local = $this->chaindata->GetGenesisBlock();
+                if ($genesis_block_local['block_hash'] != $genesis_block_bootstrap->block_hash) {
+                    Display::_printer("%LR%ERROR    %Y%GENESIS BLOCK NO MATCH%W%    genesis block does not match the block genesis of bootstrapNode");
+                    if (IS_WIN)
+                        readline("Press any Enter to close close window");
+                    exit();
+                }
+
+
             } else {
-                if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN')
+                if (IS_WIN)
                     readline("Press any Enter to close close window");
                 exit();
             }
@@ -287,7 +268,16 @@ class Gossip {
      * @param $port
      * @return bool
      */
-    public function _addBootstrapNode($ip, $port) {
+    public function _addBootstrapNode() {
+
+        if ($this->isTestNet) {
+            $ip = NODE_BOOTSTRAP_TESTNET;
+            $port = NODE_BOOSTRAP_PORT_TESTNET;
+        } else {
+            $ip = NODE_BOOTSTRAP;
+            $port = NODE_BOOSTRAP_PORT;
+        }
+
         $infoToSend = array(
             'action' => 'HELLOBOOTSTRAP',
             'client_ip' => $this->ip,
@@ -299,13 +289,24 @@ class Gossip {
         if (isset($response->status)) {
             if ($response->status == true) {
                 $this->chaindata->addPeer($ip, $port);
-                Display::_printer("Connected to BootstrapNode -> %G%" . Tools::GetIdFromIpAndPort($ip,$port));
+
+                $this->peers[] = array($ip.':'.$port => $ip,$port);
+
+                if ($this->isTestNet)
+                    Display::_printer("Connected to BootstrapNode (TESTNET) -> %G%" . Tools::GetIdFromIpAndPort($ip,$port));
+                else
+                    Display::_printer("Connected to BootstrapNode -> %G%" . Tools::GetIdFromIpAndPort($ip,$port));
+
+
                 $this->openned_ports = ($response->result == "p2p_off") ? false:true;
             }
             return true;
         }
         else {
-            Display::_printer("%LR%Error%W% Can't connect to BootstrapNode %G%". Tools::GetIdFromIpAndPort($ip,$port));
+            if ($this->isTestNet)
+                Display::_printer("%LR%Error%W% Can't connect to BootstrapNode (TESTNET) %G%". Tools::GetIdFromIpAndPort($ip,$port));
+            else
+                Display::_printer("%LR%Error%W% Can't connect to BootstrapNode %G%". Tools::GetIdFromIpAndPort($ip,$port));
             return false;
         }
     }
@@ -326,11 +327,11 @@ class Gossip {
                 'client_ip' => $this->ip,
                 'client_port' => $this->port
             );
-            $response = Tools::postContent('http://' . $ip . ':' . $port . '/gossip.php', $infoToSend, 5);
+            $response = Tools::postContent('http://' . $ip . ':' . $port . '/gossip.php', $infoToSend, 1);
             if ($response != null && isset($response->status)) {
                 if ($response->status == true) {
                     $this->chaindata->addPeer($ip, $port);
-                    //Display::_printer("Connected to peer -> %G%" . $ip.":".$port);
+                    $this->peers[] = array($ip.':'.$port => $ip,$port);
                     if ($displayMessage)
                         Display::_printer("Connected to peer -> %G%" . Tools::GetIdFromIpAndPort($ip,$port));
                 }
@@ -346,50 +347,28 @@ class Gossip {
     }
 
     /**
-     * Check the connection with the peers, if they do not respond to 5 pings, remove them
+     * Check the connection with the peers, if they do not respond remove them
      */
     public function CheckConnectionWithPeers() {
+
+        //Run subprocess peerAlive per peer
         $peers = $this->chaindata->GetAllPeers();
-        foreach ($peers as $peer) {
-            if ($this->ip.":".$this->port != $peer['ip'].":".$peer['port']) {
-                $infoToSend = array(
-                    'action' => 'PING'
+
+        if (count($peers) > 0) {
+            Display::_printer("Checking status of peers                 %G%count%W%=".count($peers));
+            $id = 0;
+            foreach ($peers as $peer) {
+                //Params for subprocess
+                $params = array(
+                    $peer['ip'],
+                    $peer['port']
                 );
-                $response = Tools::postContent('http://' . $peer['ip'] . ':' . $peer['port'] . '/gossip.php', $infoToSend, 5);
-                if ($response == null) {
-                    if (isset($this->peersRetrys[Tools::GetIdFromIpAndPort($peer['ip'],$peer['port'])]))
-                        $this->peersRetrys[Tools::GetIdFromIpAndPort($peer['ip'],$peer['port'])] += 1;
-                    else
-                        $this->peersRetrys[Tools::GetIdFromIpAndPort($peer['ip'],$peer['port'])] = 1;
-                }
+
+                //Run subprocess propagation
+                Subprocess::newProcess(Tools::GetBaseDir()."subprocess".DIRECTORY_SEPARATOR,'peerAlive',$params,$id);
+                $id++;
             }
         }
-
-        //We go through the retrys of the peers
-        foreach ($this->peersRetrys as $peerID => $retrys) {
-
-            //If this peer has 5 or more retrys
-            if ($retrys >= 5) {
-
-                //We go through the peers
-                foreach ($peers as $peer) {
-                    //We get the id of the peer
-                    $peerIDtoCheck = Tools::GetIdFromIpAndPort($peer['ip'],$peer['port']);
-
-                    //If the id of the peer matches the id of the retrys
-                    if ($peerID == $peerIDtoCheck) {
-
-                        //We eliminated the peer
-                        $this->chaindata->removePeer($peer['ip'],$peer['port']);
-                        Display::_printer("Removed peer %G%". Tools::GetIdFromIpAndPort($peer['ip'],$peer['port'])."%W% because does not respond to ping");
-
-                        //We eliminated the retrys of this peer
-                        unset($this->peersRetrys[$peerID]);
-                    }
-                }
-            }
-        }
-
     }
 
     /**
@@ -412,6 +391,11 @@ class Gossip {
         if ($this->enable_mine)
             $title .= " | Minning";
 
+        if ($this->isTestNet)
+            $title .= " | TESTNET";
+        else
+            $title .= " | MAINNET";
+
         cli_set_process_title($title);
     }
 
@@ -423,26 +407,121 @@ class Gossip {
         if ($this->loop_x5 == 5) {
             $this->loop_x5 = 0;
 
-            //If we are not synchronizing and (we are connected to the bootstrap node or we are the bootstrap node)
-            if (!$this->syncing && ($this->connected_to_bootstrap || $this->bootstrap_node)) {
-                //We ask the BootstrapNode to give us the information of the connected peers
-                $peersNode = BootstrapNode::GetPeers($this->chaindata);
-                if (is_array($peersNode) && !empty($peersNode)) {
-                    foreach ($peersNode as $peer) {
-                        if (trim($this->ip) . ":" . trim($this->port) != trim($peer->ip) . ":" . trim($peer->port)) {
-                            $this->_addPeer(trim($peer->ip), trim($peer->port),false);
+            if ($this->syncing)
+                return;
+
+            if (!$this->connected_to_bootstrap || !$this->bootstrap_node)
+                return;
+
+            //We get the pending transactions from BootstrapNode
+            if (!$this->bootstrap_node) {
+                $transactionsByPeer = BootstrapNode::GetPendingTransactions($this->chaindata,$this->isTestNet);
+                foreach ($transactionsByPeer as $transactionByPeer) {
+                    $this->chaindata->addPendingTransactionByBootstrap($transactionByPeer);
+                }
+            }
+        }
+    }
+
+    /**
+     * This loop only run this loop only runs 1 time of 5 main loop
+     */
+    public function loop_x10() {
+        $this->loop_x10++;
+        if ($this->loop_x10 == 10) {
+            $this->loop_x10 = 0;
+
+            $blocksMinedByPeers = $this->chaindata->GetPeersMinedBlocks();
+            if (!empty($blocksMinedByPeers)) {
+                while ($blockMinedByPeerDB = $blocksMinedByPeers->fetch_array(MYSQLI_ASSOC)) {
+                    $blockMinedByPeer = Tools::objectToObject($blockMinedByPeerDB['block'],'Block');
+
+                    //Check if block is valid
+                    if (!$blockMinedByPeer->isValid())
+                        $this->chaindata->RemovePeerMinedBlockByPrevious($blockMinedByPeerDB['previous_hash']);
+
+                    //Check if block is on blockchain
+                    $blockInBlockchain = $this->chaindata->GetBlockByHash($blocksMinedByPeers->hash);
+                    if ($blockInBlockchain != null)
+                        $this->chaindata->RemovePeerMinedBlockByPrevious($blockMinedByPeerDB['previous_hash']);
+                }
+            }
+
+            //Check dead peers
+            $this->CheckConnectionWithPeers();
+        }
+    }
+
+    /**
+     * We get the pending transactions from BootstrapNode
+     */
+    public function GetPendingTransactions() {
+        if (!$this->bootstrap_node) {
+            $transactionsByPeer = BootstrapNode::GetPendingTransactions($this->chaindata,$this->isTestNet);
+            foreach ($transactionsByPeer as $transactionByPeer) {
+                $this->chaindata->addPendingTransactionByBootstrap($transactionByPeer);
+            }
+        }
+    }
+
+    /**
+     * Check if the peers have mined last block
+     *
+     * @param $last_hash_block
+     */
+    public function CheckIfPeersHaveMinedBlock($last_hash_block) {
+
+        //Get next block by last hash
+        $peerMinedBlock = $this->chaindata->GetPeersMinedBlockByPrevious($last_hash_block);
+        if (is_array($peerMinedBlock) && !empty($peerMinedBlock)) {
+
+            //Load Block class
+            $blockMinedByPeer = Tools::objectToObject(@unserialize($peerMinedBlock['block']),"Block");
+
+            $numBlock = $this->chaindata->GetNextBlockNum();
+            $mini_hash = substr($blockMinedByPeer->hash,-12);
+            $mini_hash_previous = substr($blockMinedByPeer->previous,-12);
+
+            //We obtain the difference between the creation of the block and the completion of the mining
+            $minedTime = date_diff(
+                date_create(date('Y-m-d H:i:s', $blockMinedByPeer->timestamp)),
+                date_create(date('Y-m-d H:i:s', $blockMinedByPeer->timestamp_end))
+            );
+            $blockMinedInSeconds = $minedTime->format('%im%ss');
+
+            //If the previous block received by network refer to the last block of my blockchain
+            if ($blockMinedByPeer->previous == $last_hash_block) {
+
+                //If the block is valid
+                if ($blockMinedByPeer->isValid()) {
+
+                    //The block mined by the peer is valid
+                    $this->chaindata->RemovePeerMinedBlockByPrevious($last_hash_block);
+
+                    //We load the information of the difficulty and counting of blocks with the information of the mined block
+                    $this->difficulty = $blockMinedByPeer->difficulty;
+
+                    //We add the block to the chaindata and the blockchain
+                    $this->chaindata->addBlock($numBlock,$blockMinedByPeer);
+
+                    if ($this->enable_mine) {
+                        if (@file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_STARTED)) {
+                            //Stop minning subprocess
+                            Tools::clearTmpFolder();
+                            Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_STOP_MINING);
+                            Display::NewBlockCancelled();
                         }
                     }
-                }
 
-                //We get the pending transactions from BootstrapNode
-                if (!$this->bootstrap_node) {
-                    $transactionsByPeer = BootstrapNode::GetPendingTransactions($this->chaindata);
-                    foreach ($transactionsByPeer as $transactionByPeer) {
-                        $this->chaindata->addPendingTransactionByBootstrap($transactionByPeer);
-                    }
-                }
+                    //We send the mined block to all connected peers
+                    Tools::sendBlockMinedToNetworkWithSubprocess($this->chaindata,$blockMinedByPeer);
 
+                    Display::_printer("%Y%Imported%W% new block headers               %G%nonce%W%=".$blockMinedByPeer->nonce."      %G%elapsed%W%=".$blockMinedInSeconds."     %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash."      %G%number%W%=".$numBlock."");
+                } else {
+                    Display::_printer("%LR%Ignored%W% new block headers                %G%nonce%W%=".$blockMinedByPeer->nonce."      %G%elapsed%W%=".$blockMinedInSeconds."     %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash."      %G%number%W%=".$numBlock."");
+                }
+            } else {
+                Display::_printer("%LR%Ignored%W% new block headers                %G%nonce%W%=".$blockMinedByPeer->nonce."      %G%elapsed%W%=".$blockMinedInSeconds."     %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash."      %G%number%W%=".$numBlock."");
             }
         }
     }
@@ -451,203 +530,117 @@ class Gossip {
      * General loop of the node
      */
     public function loop() {
-        if (!$this->make_genesis && ($this->bootstrap_node || $this->connected_to_bootstrap)) {
 
-            //If we have the miner activated and we are not synchronizing, we warn that we started mining
-            if ($this->enable_mine && !$this->syncing) {
-                Display::DisplayMinerScreen();
+        if ($this->make_genesis)
+            return;
+
+        if (!$this->connected_to_bootstrap && !$this->bootstrap_node)
+            return;
+
+        $this->GetPendingTransactions();
+
+        //If we do not build the genesis, we'll go around
+        while (true) {
+            //We establish the title of the process
+            $this->SetTitleProcess();
+
+            //Update MainThread time for subprocess
+            Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MAIN_THREAD_CLOCK,time());
+
+            //Get pending transactions
+            $this->GetPendingTransactions();
+
+            //Exec delayed loops
+            $this->loop_x5();
+
+            //If we are not synchronizing
+            if (!$this->syncing) {
+
+                //We send all transactions_pending_to_send to the network
+                $this->sendPendingTransactionsToNetwork();
+
+                //We check the difficulty
+                if (!$this->isTestNet)
+                    Blockchain::checkDifficulty($this->chaindata,$this->difficulty);
+
+                //We mine the block
+                if ($this->enable_mine) {
+                    //Enable Miners if not enabled
+                    if (@!file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_STARTED))
+                        Miner::MineNewBlock($this);
+
+                    //If found new block
+                    if (@file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_NEW_BLOCK)) {
+                        $blockMined = Tools::objectToObject(@unserialize(@file_get_contents(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_NEW_BLOCK)),'Block');
+
+                        //Display message
+                        Display::NewBlockMined($blockMined);
+
+                        //Stop minning subprocess
+                        Tools::clearTmpFolder();
+                        Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_STOP_MINING);
+
+                        //Wait 2-2.5s
+                        usleep(rand(2000000,2500000));
+                    }
+                }
+
+                //We check if there are new blocks to be added and that they are next to the last block of the blockchain
+                $last_hash_block = $this->chaindata->GetLastBlock()['block_hash'];
+                $this->CheckIfPeersHaveMinedBlock($last_hash_block);
             }
 
-            //We get the pending transactions from BootstrapNode firstTime
-            if (!$this->bootstrap_node) {
-                $transactionsByPeer = BootstrapNode::GetPendingTransactions($this->chaindata);
-                foreach ($transactionsByPeer as $transactionByPeer) {
-                    $this->chaindata->addPendingTransactionByBootstrap($transactionByPeer);
+            //If we are synchronizing and we are connected with the bootstrap
+            else if ($this->syncing) {
+
+                //We get the last block from the BootstrapNode
+                $lastBlock_BootstrapNode = BootstrapNode::GetLastBlockNum($this->chaindata,$this->isTestNet);
+                $lastBlock_LocalNode = $this->chaindata->GetNextBlockNum();
+
+                if ($lastBlock_LocalNode < $lastBlock_BootstrapNode) {
+                    $nextBlocksToSyncFromPeer = BootstrapNode::SyncNextBlocksFrom($this->chaindata, $lastBlock_LocalNode,$this->isTestNet);
+                    Peer::SyncBlocks($this->chaindata,$nextBlocksToSyncFromPeer,$lastBlock_LocalNode,$lastBlock_BootstrapNode);
+                } else {
+                    $this->syncing = false;
+
+                    Display::_printer("%Y%Synchronization%W% finished");
+
+                    //We synchronize the information of the blockchain
+                    $this->difficulty = $this->chaindata->GetLastBlock()['difficulty'];
+
+                    //We check the difficulty
+                    if ($this->isTestNet)
+                        Blockchain::checkDifficulty($this->chaindata,$this->difficulty);
+
+                    //We clean the table of blocks mined by the peers
+                    $this->chaindata->truncate("mined_blocks_by_peers");
+                    $this->chaindata->truncate("transactions_pending");
                 }
+
+                continue;
             }
 
-            //If we do not build the genesis, we'll go around
-            while (true) {
-                //We establish the title of the process
-                $this->SetTitleProcess();
 
-                //Ejecutamos el loop x5
-                $this->loop_x5();
+            //We get the last block from the BootstrapNode and compare it with our local
+            $bootstrapNode_lastBlock = ($this->bootstrap_node == true) ? $this->chaindata->GetNextBlockNum():BootstrapNode::GetLastBlockNum($this->chaindata,$this->isTestNet);
+            $local_lastBlock = $this->chaindata->GetNextBlockNum();
 
-                //If we are not synchronizing and (we are connected to the bootstrap node or we are the bootstrap node)
-                if (!$this->syncing && ($this->connected_to_bootstrap || $this->bootstrap_node)) {
+            if ($local_lastBlock < $bootstrapNode_lastBlock) {
 
-                    //We send all pending transactions to the network
-                    $this->sendPendingTransactionsToNetwork();
-
-                    //We check the difficulty of the network
-                    $this->state->blockchain->checkDifficulty();
-
-                    //We mine the block
-                    if ($this->enable_mine) {
-                        $mined = Miner::MineNewBlock($this);
-                        if ($mined)
-                            Display::NewBlockMined($this);
-                        else {
-                            //We get the block mined by another user
-                            $blockMinedByPeer = $this->state->blockchain->GetLastBlock();
-
-                            /*
-                            //We load the information of the difficulty and counting of blocks with the information of the mined block
-                            $this->state->blockchain->difficulty = $blockMinedByPeer->difficulty;
-                            $this->state->blockchain->blocks_count_reset = $blockMinedByPeer->info['current_blocks_difficulty'];
-                            $this->state->blockchain->blocks_count_halving = $blockMinedByPeer->info['current_blocks_halving'];
-                            */
-                        }
-
-                        //We wait 2 - 2.5 seconds before continuing
-                        usleep(rand(1500000,2500000));
-                    }
-
-                    //We check if there are new blocks to be added and that they are next to the last block of the blockchain
-                    $last_hash_block = $this->state->blockchain->GetLastBlock()->hash;
-                    $peerMinedBlock = $this->chaindata->GetPeersMinedBlockByPrevious($last_hash_block);
-
-                    if (is_array($peerMinedBlock) && !empty($peerMinedBlock)) {
-                        $blockMinedByPeer = Tools::objectToObject(@unserialize($peerMinedBlock['block']),"Block");
-
-                        //We obtain the block number to be entered and the block information
-                        $numBlock = $this->chaindata->GetNextBlockNum();
-
-                        $mini_hash = substr($blockMinedByPeer->hash,-12);
-                        $mini_hash_previous = substr($blockMinedByPeer->previous,-12);
-
-                        //We obtain the difference between the creation of the block and the completion of the mining
-                        $minedTime = date_diff(
-                            date_create(date('Y-m-d H:i:s', $blockMinedByPeer->timestamp)),
-                            date_create(date('Y-m-d H:i:s', $blockMinedByPeer->timestamp_end))
-                        );
-                        $blockMinedInSeconds = $minedTime->format('%im%ss');
-
-                        //If the previous block received by network refer to the last block of my blockchain
-                        if ($blockMinedByPeer->previous == $last_hash_block) {
-
-                            //If the block is valid
-                            if ($blockMinedByPeer->isValid()) {
-
-                                //The block mined by the peer is valid
-                                $this->chaindata->RemovePeerMinedBlockByPrevious($last_hash_block);
-
-                                //We load the information of the difficulty and counting of blocks with the information of the mined block
-                                $this->state->blockchain->difficulty = $blockMinedByPeer->difficulty;
-
-                                //We add the block to the chaindata and the blockchain
-                                $this->chaindata->addBlock($numBlock,$blockMinedByPeer);
-                                $this->state->blockchain->addSync($numBlock,$blockMinedByPeer,true);
-
-                                //We send the mined block to all connected peers
-                                $this->sendBlockMinedToNetwork($blockMinedByPeer);
-
-                                Display::_printer("%Y%Imported%W% new block headers               %G%nonce%W%=".$blockMinedByPeer->nonce."   %G%elapsed%W%=".$blockMinedInSeconds."   %G%number%W%=".$numBlock."   %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash);
-                            } else {
-                                Display::_printer("%LR%Ignored%W% new block headers               %G%reason%W%=NoValid     %G%nonce%W%=".$blockMinedByPeer->nonce."   %G%elapsed%W%=".$blockMinedInSeconds."   %G%number%W%=".$numBlock."   %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash);
-                            }
-                        } else {
-                            Display::_printer("%LR%Ignored%W% new block headers               %G%reason%W%=NoPreviousHashCheck     %G%nonce%W%=".$blockMinedByPeer->nonce."   %G%elapsed%W%=".$blockMinedInSeconds."   %G%number%W%=".$numBlock."   %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash);
-                        }
-                    }
-
+                if ($this->enable_mine && @file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_STARTED)) {
+                    //Stop minning subprocess
+                    Tools::clearTmpFolder();
+                    Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_STOP_MINING);
+                    Display::NewBlockCancelled();
                 }
 
-                //If we are synchronizing and we are connected with the bootstrap
-                if ($this->syncing && $this->connected_to_bootstrap) {
-                    //We get the last block from the BootstrapNode
-                    $bootstrapNode_lastBlock = BootstrapNode::GetLastBlockNum($this->chaindata);
-                    $local_lastBlock = $this->state->blockchain->count();
-
-                    if ($local_lastBlock < $bootstrapNode_lastBlock) {
-                        $nextBlocksToSyncFromPeer = BootstrapNode::SyncNextBlocksFrom($this->chaindata, $local_lastBlock);
-
-                        $blocksSynced = 0;
-                        foreach ($nextBlocksToSyncFromPeer as $object) {
-
-                            $infoBlock = @unserialize($object->info);
-
-                            $transactions = array();
-                            foreach ($object->transactions as $transactionInfo) {
-                                $transactions[] = new Transaction(
-                                    $transactionInfo->wallet_from_key,
-                                    $transactionInfo->wallet_to,
-                                    $transactionInfo->amount,
-                                    null,
-                                    null,
-                                    (isset($transactionInfo->tx_fee)) ? $transactionInfo->tx_fee:'',
-                                    true,
-                                    $transactionInfo->txn_hash,
-                                    $transactionInfo->signature,
-                                    $transactionInfo->timestamp
-                                );
-                            }
-
-                            $blockchainNull = "";
-                            $block = new Block(
-                                $object->block_previous,
-                                $object->difficulty,
-                                $transactions,
-                                $blockchainNull,
-                                true,
-                                $object->block_hash,
-                                $object->nonce,
-                                $object->timestamp_start_miner,
-                                $object->timestamp_end_miner,
-                                $object->root_merkle,
-                                $infoBlock
-                            );
-
-                            //If the block is valid and the previous one refers to the last block of the local blockchain
-                            if ($block->isValid()) {
-
-                                //We add the block to the chaindata and blockchain
-                                $this->state->blockchain->addSync($object->height,$block);
-                                $this->chaindata->addBlock($object->height,$block);
-
-                                $blocksSynced++;
-                            } else {
-                                Display::_printer("BLOCK: " . $block->hash . " NO VALID");
-                            }
-                        }
-                        Display::_printer("%Y%Imported%W% new blocks headers               %G%count%W%=".$blocksSynced);
-                    } else {
-                        $this->syncing = false;
-
-                        //We synchronize the information of the blockchain
-                        $this->state->blockchain->difficulty = $this->state->blockchain->GetLastBlock()->difficulty;
-
-                        //We check the difficulty
-                        $this->state->blockchain->checkDifficulty();
-
-                        //We clean the table of blocks mined by the peers
-                        $this->chaindata->truncate("mined_blocks_by_peers");
-                        $this->chaindata->truncate("transactions_pending");
-
-                        //If we have the miner, we can start mining the last block
-                        if ($this->enable_mine) {
-                            Display::DisplayMinerScreen();
-                        }
-                    }
-                    continue;
-                }
-
-
-                //We get the last block from the BootstrapNode and compare it with our local
-                $bootstrapNode_lastBlock = ($this->bootstrap_node == true) ? $this->state->blockchain->count():BootstrapNode::GetLastBlockNum($this->chaindata);
-                $local_lastBlock = $this->state->blockchain->count();
-
-                if ($local_lastBlock < $bootstrapNode_lastBlock) {
-                    $this->syncing = true;
-                    continue;
-                }
-
-                //We check the connections with the peers
-                //$this->CheckConnectionWithPeers();
-
-                usleep(1000000);
+                $this->syncing = true;
+                continue;
             }
+
+            $this->loop_x10();
+
+            usleep(1000000);
         }
     }
 
@@ -678,11 +671,14 @@ class Gossip {
                     'txs' => $pending_tx
                 );
 
-                if ($peer["ip"] == "blockchain.mataxetos.es") {
-                    Tools::postContent('https://blockchain.mataxetos.es/gossip.php', $infoToSend);
+                if ($peer["ip"] == NODE_BOOTSTRAP) {
+                    Tools::postContent('https://'.NODE_BOOTSTRAP.'/gossip.php', $infoToSend,5);
+                }
+                else if ($peer["ip"] == NODE_BOOTSTRAP_TESTNET) {
+                    Tools::postContent('https://'.NODE_BOOTSTRAP_TESTNET.'/gossip.php', $infoToSend,5);
                 }
                 else {
-                    Tools::postContent('http://' . $peer['ip'] . ':' . $peer['port'] . '/gossip.php', $infoToSend);
+                    Tools::postContent('http://' . $peer['ip'] . ':' . $peer['port'] . '/gossip.php', $infoToSend,5);
                 }
             }
         }
@@ -690,35 +686,6 @@ class Gossip {
         //We delete transactions sent from transactions_pending_to_send
         foreach ($pending_tx as $tx)
             $this->chaindata->removePendingTransactionToSend($tx['txn_hash']);
-    }
-
-    /**
-     * We send the mined block to all our peers
-     *
-     * @param $blockMined
-     */
-    public function sendBlockMinedToNetwork($blockMined) {
-        $peers = $this->chaindata->GetAllPeers();
-        foreach ($peers as $peer) {
-
-            $myPeerID = Tools::GetIdFromIpAndPort($this->ip,$this->port);
-            $peerID = Tools::GetIdFromIpAndPort($peer['ip'],$peer['port']);
-
-            if ($myPeerID != $peerID) {
-                $infoToSend = array(
-                    'action' => 'MINEDBLOCK',
-                    'hash_previous' => $blockMined->previous,
-                    'block' => @serialize($blockMined)
-                );
-
-                if ($peer["ip"] == "blockchain.mataxetos.es") {
-                    Tools::postContent('https://blockchain.mataxetos.es/gossip.php', $infoToSend);
-                }
-                else {
-                    Tools::postContent('http://' . $peer['ip'] . ':' . $peer['port'] . '/gossip.php', $infoToSend);
-                }
-            }
-        }
     }
 }
 ?>

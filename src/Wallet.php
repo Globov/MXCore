@@ -37,7 +37,7 @@ class Wallet {
             $password = null;
 
         //By default, the file we want to check is the name of the account
-        $wallet_file = State::GetBaseDir().DIRECTORY_SEPARATOR."data".DIRECTORY_SEPARATOR."wallets".DIRECTORY_SEPARATOR.$account.".dat";
+        $wallet_file = Tools::GetBaseDir().DIRECTORY_SEPARATOR."data".DIRECTORY_SEPARATOR."wallets".DIRECTORY_SEPARATOR.$account.".dat";
 
         //If the wallet exists, we load it
         if (strlen($account) > 0 && @file_exists($wallet_file)) {
@@ -48,7 +48,7 @@ class Wallet {
 
             //If the account we want to create is different from the coinbase account, we will save the information with the name of the address file
             if ($account != "coinbase")
-                $wallet_file = State::GetBaseDir().DIRECTORY_SEPARATOR."data".DIRECTORY_SEPARATOR."wallets".DIRECTORY_SEPARATOR.Wallet::GetWalletAddressFromPubKey($keys['public']).".dat";
+                $wallet_file = Tools::GetBaseDir().DIRECTORY_SEPARATOR."data".DIRECTORY_SEPARATOR."wallets".DIRECTORY_SEPARATOR.Wallet::GetWalletAddressFromPubKey($keys['public']).".dat";
 
             //We keep the keys
             @file_put_contents($wallet_file, serialize($keys));
@@ -63,7 +63,7 @@ class Wallet {
      * @return bool|mixed
      */
     public static function GetCoinbase() {
-        $wallet_file = State::GetBaseDir().DIRECTORY_SEPARATOR."data".DIRECTORY_SEPARATOR."wallets".DIRECTORY_SEPARATOR."coinbase.dat";
+        $wallet_file = Tools::GetBaseDir().DIRECTORY_SEPARATOR."data".DIRECTORY_SEPARATOR."wallets".DIRECTORY_SEPARATOR."coinbase.dat";
         if (file_exists($wallet_file)) {
             return unserialize(@file_get_contents($wallet_file));
         }
@@ -77,7 +77,7 @@ class Wallet {
      * @return bool|mixed
      */
     public static function GetWallet($address) {
-        $wallet_file = State::GetBaseDir().DIRECTORY_SEPARATOR."data".DIRECTORY_SEPARATOR."wallets".DIRECTORY_SEPARATOR.$address.".dat";
+        $wallet_file = Tools::GetBaseDir().DIRECTORY_SEPARATOR."data".DIRECTORY_SEPARATOR."wallets".DIRECTORY_SEPARATOR.$address.".dat";
         if (file_exists($wallet_file)) {
             return unserialize(@file_get_contents($wallet_file));
         }
@@ -88,9 +88,10 @@ class Wallet {
      * Get Balance of wallet
      *
      * @param $address
+     * @param $isTestNet
      * @return int|mixed
      */
-    public static function GetBalance($address) {
+    public static function GetBalance($address,$isTestNet=false) {
 
         if ($address == "coinbase") {
             $wallet_from_info = self::GetCoinbase();
@@ -99,6 +100,13 @@ class Wallet {
 
         //Instanciamos el puntero al chaindata
         $chaindata = new DB();
+
+        //Comprobamos si estamos sincronizados o no
+        $lastBlockNum = BootstrapNode::GetLastBlockNum($chaindata,$isTestNet);
+        $lastBlockNum_Local = $chaindata->GetNextBlockNum();
+
+        if ($lastBlockNum != $lastBlockNum_Local)
+            return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." Blockchain it is not synchronized".PHP_EOL;
 
         //Obtenemos lo que ha recibido el usuario en esta cartera
         $totalReceived = "0";
@@ -164,19 +172,19 @@ class Wallet {
      *
      * @param $wallet_from
      * @param $wallet_from_password
-     * @param $wallet_from_info
      * @param $wallet_to
      * @param $amount
      * @param $tx_fee
+     * @param $isTestNet
      * @return string
      */
-    public static function SendTransaction($wallet_from,$wallet_from_password,$wallet_to,$amount,$tx_fee) {
+    public static function SendTransaction($wallet_from,$wallet_from_password,$wallet_to,$amount,$tx_fee,$isTestNet=false) {
 
         //Instance the pointer to the chaindata
         $chaindata = new DB();
 
         //Comprobamos si estamos sincronizados o no
-        $lastBlockNum = BootstrapNode::GetLastBlockNum($chaindata);
+        $lastBlockNum = BootstrapNode::GetLastBlockNum($chaindata,$isTestNet);
         $lastBlockNum_Local = $chaindata->GetNextBlockNum();
 
         if ($lastBlockNum != $lastBlockNum_Local)
@@ -186,13 +194,13 @@ class Wallet {
             return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." Minium to send 0.00000001".PHP_EOL;
 
         if ($tx_fee == 3 && bccomp($amount ,"0.00014000",8) == -1)
-            return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." There is not enough balance in the account 1".PHP_EOL;
+            return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." There is not enough balance in the account".PHP_EOL;
 
         if ($tx_fee == 2 && bccomp($amount ,"0.00009000",8) == -1)
-            return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." There is not enough balance in the account 2".PHP_EOL;
+            return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." There is not enough balance in the account".PHP_EOL;
 
         if ($tx_fee == 1 && bccomp($amount ,"0.00000250",8) == -1)
-            return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." There is not enough balance in the account 3".PHP_EOL;
+            return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." There is not enough balance in the account".PHP_EOL;
 
         if ($wallet_from == "coinbase") {
             $wallet_from_info = self::GetCoinbase();
@@ -207,7 +215,7 @@ class Wallet {
         // If have wallet from info
         if ($wallet_from_info !== false) {
             // Get current balance of wallet
-            $currentBalance = self::GetBalance($wallet_from);
+            $currentBalance = self::GetBalance($wallet_from,$isTestNet);
 
             // If have balance
             if (bccomp($currentBalance,$amount,8) == 0 || bccomp($currentBalance,$amount,8) == 1) {
@@ -241,7 +249,7 @@ class Wallet {
             }
         } else {
             $return_message = "Could not find the ".ColorsCLI::$FG_RED."public/private key".ColorsCLI::$FG_WHITE." of wallet ".ColorsCLI::$FG_GREEN.$wallet_from.ColorsCLI::$FG_WHITE.PHP_EOL;
-            $return_message .= "Please check that in the directory ".ColorsCLI::$FG_CYAN.State::GetBaseDir().DIRECTORY_SEPARATOR."data".DIRECTORY_SEPARATOR."wallets".DIRECTORY_SEPARATOR.ColorsCLI::$FG_WHITE." there is the keystore of the wallet".PHP_EOL;
+            $return_message .= "Please check that in the directory ".ColorsCLI::$FG_CYAN.Tools::GetBaseDir().DIRECTORY_SEPARATOR."data".DIRECTORY_SEPARATOR."wallets".DIRECTORY_SEPARATOR.ColorsCLI::$FG_WHITE." there is the keystore of the wallet".PHP_EOL;
             return $return_message;
         }
     }

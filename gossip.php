@@ -23,7 +23,6 @@
 //
 
 include('CONFIG.php');
-include('src/State.php');
 include('src/DB.php');
 include('src/BootstrapNode.php');
 include('src/ArgvParser.php');
@@ -45,6 +44,8 @@ $return = array(
     'message'   => null,
     'result'    => null
 );
+
+date_default_timezone_set("UTC");
 
 if (isset($_REQUEST)) {
     if (isset($_REQUEST['action'])) {

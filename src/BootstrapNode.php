@@ -24,8 +24,6 @@
 
 class BootstrapNode {
 
-    public static $ip = "blockchain.mataxetos.es";
-
     /**
      *
      * We get the last block of the BootstrapNode
@@ -33,14 +31,23 @@ class BootstrapNode {
      * @param DB $chaindata
      * @return int|mixed
      */
-    public static function GetPeers(&$chaindata) {
+    public static function GetPeers(&$chaindata,$isTestNet=false) {
+
+        if ($isTestNet) {
+            $ip = NODE_BOOTSTRAP_TESTNET;
+            $port = NODE_BOOSTRAP_PORT_TESTNET;
+        } else {
+            $ip = NODE_BOOTSTRAP;
+            $port = NODE_BOOSTRAP_PORT;
+        }
+
         $bootstrapNode = $chaindata->GetBootstrapNode();
         //Nos comunicamos con el BOOTSTRAP_NODE
         $infoToSend = array(
             'action' => 'GETPEERS'
         );
 
-        $infoPOST = Tools::postContent('https://' . self::$ip . '/gossip.php', $infoToSend);
+        $infoPOST = Tools::postContent('https://' . $ip . '/gossip.php', $infoToSend);
         if ($infoPOST->status == 1)
             return $infoPOST->result;
         else
@@ -54,14 +61,23 @@ class BootstrapNode {
      * @param DB $chaindata
      * @return int|mixed
      */
-    public static function GetPendingTransactions(&$chaindata) {
+    public static function GetPendingTransactions(&$chaindata,$isTestNet=false) {
+
+        if ($isTestNet) {
+            $ip = NODE_BOOTSTRAP_TESTNET;
+            $port = NODE_BOOSTRAP_PORT_TESTNET;
+        } else {
+            $ip = NODE_BOOTSTRAP;
+            $port = NODE_BOOSTRAP_PORT;
+        }
+
         $bootstrapNode = $chaindata->GetBootstrapNode();
         //Nos comunicamos con el BOOTSTRAP_NODE
         $infoToSend = array(
             'action' => 'GETPENDINGTRANSACTIONS'
         );
 
-        $infoPOST = Tools::postContent('https://' . self::$ip . '/gossip.php', $infoToSend);
+        $infoPOST = Tools::postContent('https://' . $ip . '/gossip.php', $infoToSend);
         if ($infoPOST->status == 1)
             return $infoPOST->result;
         else
@@ -75,14 +91,23 @@ class BootstrapNode {
      * @param DB $chaindata
      * @return int
      */
-    public static function GetLastBlockNum(&$chaindata) {
+    public static function GetLastBlockNum(&$chaindata,$isTestNet=false) {
+
+        if ($isTestNet) {
+            $ip = NODE_BOOTSTRAP_TESTNET;
+            $port = NODE_BOOSTRAP_PORT_TESTNET;
+        } else {
+            $ip = NODE_BOOTSTRAP;
+            $port = NODE_BOOSTRAP_PORT;
+        }
+
         $bootstrapNode = $chaindata->GetBootstrapNode();
         //Nos comunicamos con el BOOTSTRAP_NODE
         $infoToSend = array(
             'action' => 'LASTBLOCKNUM'
         );
 
-        $infoPOST = Tools::postContent('https://' . self::$ip . '/gossip.php', $infoToSend);
+        $infoPOST = Tools::postContent('https://' . $ip . '/gossip.php', $infoToSend);
         if ($infoPOST->status == 1)
             return $infoPOST->result;
         else
@@ -96,13 +121,22 @@ class BootstrapNode {
      * @param DB $chaindata
      * @return mixed
      */
-    public static function GetGenesisBlock(&$chaindata) {
+    public static function GetGenesisBlock(&$chaindata,$isTestNet=false) {
+
+        if ($isTestNet) {
+            $ip = NODE_BOOTSTRAP_TESTNET;
+            $port = NODE_BOOSTRAP_PORT_TESTNET;
+        } else {
+            $ip = NODE_BOOTSTRAP;
+            $port = NODE_BOOSTRAP_PORT;
+        }
+
         $bootstrapNode = $chaindata->GetBootstrapNode();
         //Nos comunicamos con el BOOTSTRAP_NODE
         $infoToSend = array(
             'action' => 'GETGENESIS'
         );
-        $infoPOST = Tools::postContent('https://' . self::$ip . '/gossip.php', $infoToSend);
+        $infoPOST = Tools::postContent('https://' . $ip . '/gossip.php', $infoToSend);
         if ($infoPOST->status == 1)
             return $infoPOST->result;
         else
@@ -117,7 +151,16 @@ class BootstrapNode {
      * @param int $lastBlockOnLocalBlockChain
      * @return mixed
      */
-    public static function SyncNextBlocksFrom(&$chaindata, $lastBlockOnLocalBlockChain) {
+    public static function SyncNextBlocksFrom(&$chaindata, $lastBlockOnLocalBlockChain,$isTestNet=false) {
+
+        if ($isTestNet) {
+            $ip = NODE_BOOTSTRAP_TESTNET;
+            $port = NODE_BOOSTRAP_PORT_TESTNET;
+        } else {
+            $ip = NODE_BOOTSTRAP;
+            $port = NODE_BOOSTRAP_PORT;
+        }
+
         $bootstrapNode = $chaindata->GetBootstrapNode();
 
         //Nos comunicamos con el BOOTSTRAP_NODE
@@ -125,28 +168,7 @@ class BootstrapNode {
             'action' => 'SYNCBLOCKS',
             'from' => $lastBlockOnLocalBlockChain
         );
-        $infoPOST = Tools::postContent('https://' . self::$ip . '/gossip.php', $infoToSend);
-        if ($infoPOST->status == 1)
-            return $infoPOST->result;
-        else
-            return 0;
-    }
-
-    /**
-     *
-     * Returns the information of the BootstrapNode blockchain
-     *
-     * @param DB $chaindata
-     * @return mixed
-     */
-    public static function GetInfoBlockchain(&$chaindata) {
-        $bootstrapNode = $chaindata->GetBootstrapNode();
-
-        //Nos comunicamos con el BOOTSTRAP_NODE
-        $infoToSend = array(
-            'action' => 'SYNCBLOCKCHAININFO',
-        );
-        $infoPOST = Tools::postContent('https://' . self::$ip . '/gossip.php', $infoToSend);
+        $infoPOST = Tools::postContent('https://' . $ip . '/gossip.php', $infoToSend);
         if ($infoPOST->status == 1)
             return $infoPOST->result;
         else

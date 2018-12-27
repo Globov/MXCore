@@ -32,6 +32,11 @@ class Miner {
      */
     public static function MineNewBlock(&$gossip) {
 
+        //Clear stop file of miners
+        @unlink(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_STOP_MINING);
+        @unlink(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_STARTED);
+        @unlink(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_TX_INFO);
+
         //Get Pending transactions
         $transactions_pending = $gossip->chaindata->GetAllPendingTransactions();
 
@@ -65,41 +70,31 @@ class Miner {
                 $transactions[] = $new_txn;
         }
 
-        Display::_printer("Start minning block with " . count($transactions) . " txns");
+        Display::_printer("Start minning block                      %G%txns%W%=" . count($transactions) . "             %G%threads%W%=" . MINER_MAX_SUBPROCESS);
 
-        //We create the new block with the hash of the previous block, the pending transactions, pointer to the blockchain
-        $blockMined = new Block($gossip->state->blockchain->blocks[count($gossip->state->blockchain->blocks)-1],$gossip->state->blockchain->difficulty,$transactions,$gossip->state->blockchain);
+        //Save transactions for this block
+        Tools::writeFile(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_TX_INFO,@serialize($transactions));
+        Tools::writeFile(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_STARTED);
 
-        //At this point, we have mined the block or someone has mined it
+        //Get info to pass miner
+        $lastBlock = $gossip->chaindata->GetLastBlock();
+        $directoryProcessFile = Tools::GetBaseDir()."subprocess".DIRECTORY_SEPARATOR;
 
-        //We validate that the mined block is valid
-        if (strlen($blockMined->hash) > 0 && $blockMined->isValid()) {
+        $network = "mainnet";
+        if ($gossip->isTestNet)
+            $network = "testnet";
 
-            //We warn the network that we have mined this block
-            $gossip->sendBlockMinedToNetwork($blockMined);
-
-            return true;
-
-            /*
-            //Check if other miner has mined this block
-            $last_hash_block = $gossip->state->blockchain->GetLastBlock()->hash;
-            $peerMinedBlock = $gossip->chaindata->GetPeersMinedBlockByPrevious($last_hash_block);
-
-            //If haven't peer mined block
-            if (!is_array($peerMinedBlock)) {
-                //We add the block to the blockchain and it will return us if the difficulty has been modified
-                $changedDifficulty = $gossip->state->blockchain->add($blockMined);
-
-                //We get the number of the last block
-                $numBlock = $gossip->chaindata->GetNextBlockNum();
-
-                //We add the block to the chaindata (DB)
-                if ($gossip->chaindata->addBlock($numBlock,$blockMined))
-                    return true;
-            }
-            */
+        //Start subprocess miners
+        for ($i = 0; $i < MINER_MAX_SUBPROCESS; $i++) {
+            $params = array(
+                $lastBlock['block_hash'],
+                $gossip->difficulty,
+                $i,
+                MINER_MAX_SUBPROCESS,
+                $network
+            );
+            Subprocess::newProcess($directoryProcessFile,'miner',$params,$i);
         }
-        return false;
     }
 
 }
