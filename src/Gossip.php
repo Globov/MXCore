@@ -516,7 +516,11 @@ class Gossip {
                     //We send the mined block to all connected peers
                     Tools::sendBlockMinedToNetworkWithSubprocess($this->chaindata,$blockMinedByPeer);
 
-                    Display::_printer("%Y%Imported%W% new block headers               %G%nonce%W%=".$blockMinedByPeer->nonce."      %G%elapsed%W%=".$blockMinedInSeconds."     %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash."      %G%number%W%=".$numBlock."");
+                    if ($blockMinedByPeer->transactions[0]->to == $this->coinbase) {
+                        Display::_printer("%Y%Rewarded%W% new block headers               %G%nonce%W%=".$blockMinedByPeer->nonce."      %G%elapsed%W%=".$blockMinedInSeconds."     %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash."      %G%number%W%=".$numBlock."");
+                    } else {
+                        Display::_printer("%Y%Imported%W% new block headers               %G%nonce%W%=".$blockMinedByPeer->nonce."      %G%elapsed%W%=".$blockMinedInSeconds."     %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash."      %G%number%W%=".$numBlock."");
+                    }
                 } else {
                     Display::_printer("%LR%Ignored%W% new block headers                %G%nonce%W%=".$blockMinedByPeer->nonce."      %G%elapsed%W%=".$blockMinedInSeconds."     %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash."      %G%number%W%=".$numBlock."");
                 }
@@ -656,11 +660,9 @@ class Gossip {
 
                 if ($lastBlock_LocalNode < $lastBlock_BootstrapNode) {
                     $nextBlocksToSyncFromPeer = BootstrapNode::SyncNextBlocksFrom($this->chaindata, $lastBlock_LocalNode,$this->isTestNet);
-                    Peer::SyncBlocks($this->chaindata,$nextBlocksToSyncFromPeer,$lastBlock_LocalNode,$lastBlock_BootstrapNode);
+                    Peer::SyncBlocks($this,$nextBlocksToSyncFromPeer,$lastBlock_LocalNode,$lastBlock_BootstrapNode);
                 } else {
                     $this->syncing = false;
-
-                    Display::_printer("%Y%Synchronization%W% finished");
 
                     //We synchronize the information of the blockchain
                     $this->difficulty = $this->chaindata->GetLastBlock()['difficulty'];
@@ -688,7 +690,6 @@ class Gossip {
                     //Stop minning subprocess
                     Tools::clearTmpFolder();
                     Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_STOP_MINING);
-                    Display::NewBlockCancelled();
                 }
 
                 $this->syncing = true;
