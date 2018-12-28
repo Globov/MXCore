@@ -73,9 +73,5 @@ if ($blockMined != null && is_object($blockMined)) {
     else {
         Tools::postContent('http://' . $peerIP . ':' . $peerPORT . '/gossip.php', $infoToSend,5);
     }
-
-    Display::_printer("%G%SUCCESS%W%     Block info sended");
-} else {
-    Display::_printer("%LR%ERROR%W%     Block info cache not found");
 }
 die();
