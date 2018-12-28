@@ -690,6 +690,7 @@ class Gossip {
                     //Stop minning subprocess
                     Tools::clearTmpFolder();
                     Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_STOP_MINING);
+                    Display::_printer("%Y%Miner work cancelled%W%     Imported new headers");
                 }
 
                 $this->syncing = true;
