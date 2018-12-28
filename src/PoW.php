@@ -54,43 +54,45 @@ class PoW {
 
             $countIdle++;
 
-            //Update "pid" file every 1000 hashes
-            if ($countIdle % 1000 == 0) {
-                $countIdle = 0;
-                Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$startNonce,time());
-            }
-
-            //Check if MainThread is alive
-            if (@file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MAIN_THREAD_CLOCK)) {
-                $mainThreadTime = @file_get_contents(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MAIN_THREAD_CLOCK);
-                $minedTime = date_diff(
-                    date_create(date('Y-m-d H:i:s', $mainThreadTime)),
-                    date_create(date('Y-m-d H:i:s', time()))
-                );
-                $diffTime = $minedTime->format('%s');
-                if ($diffTime >= MINER_TIMEOUT_CLOSE)
-                    die('MAINTHREAD NOT FOUND');
-            }
-
-            //Quit-Files
-            if (@file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_STOP_MINING)) {
-                //Delete "pid" file
-                @unlink(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$startNonce);
-                die('STOP MINNING');
-            }
-            if (@file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_NEW_BLOCK)) {
-                //Delete "pid" file
-                @unlink(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$startNonce);
-                die('BLOCK FOUND');
-            }
-            if (!file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_TX_INFO)) {
-                //Delete "pid" file
-                @unlink(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$startNonce);
-                die('NO TX INFO');
-            }
-
             //We increased the nonce to continue in the search to solve the problem
             $nonce += $incrementNonce;
+
+            //Check alive status every 1000 hashes
+            if ($countIdle % 1000 == 0) {
+                $countIdle = 0;
+
+                //Update "pid" file every 1000 hashes
+                Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$startNonce,time());
+
+                //Check if MainThread is alive
+                if (@file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MAIN_THREAD_CLOCK)) {
+                    $mainThreadTime = @file_get_contents(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MAIN_THREAD_CLOCK);
+                    $minedTime = date_diff(
+                        date_create(date('Y-m-d H:i:s', $mainThreadTime)),
+                        date_create(date('Y-m-d H:i:s', time()))
+                    );
+                    $diffTime = $minedTime->format('%s');
+                    if ($diffTime >= MINER_TIMEOUT_CLOSE)
+                        die('MAINTHREAD NOT FOUND');
+                }
+
+                //Quit-Files
+                if (@file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_STOP_MINING)) {
+                    //Delete "pid" file
+                    @unlink(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$startNonce);
+                    die('STOP MINNING');
+                }
+                if (@file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_NEW_BLOCK)) {
+                    //Delete "pid" file
+                    @unlink(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$startNonce);
+                    die('BLOCK FOUND');
+                }
+                if (!file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_TX_INFO)) {
+                    //Delete "pid" file
+                    @unlink(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$startNonce);
+                    die('NO TX INFO');
+                }
+            }
         }
         return $nonce;
     }

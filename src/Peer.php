@@ -25,11 +25,15 @@
 class Peer {
 
     /**
-     * @param DB $chaindata
+     * @param Gossip $gossip
      * @param $nextBlocksToSyncFromPeer
+     * @param $currentBlocks
+     * @param $totalBlocks
      */
-    public static function SyncBlocks(&$chaindata,$nextBlocksToSyncFromPeer,$currentBlocks,$totalBlocks) {
+    public static function SyncBlocks(&$gossip,$nextBlocksToSyncFromPeer,$currentBlocks,$totalBlocks) {
         $blocksSynced = 0;
+        $blockSynced = null;
+        $transactionsSynced = null;
         foreach ($nextBlocksToSyncFromPeer as $object) {
 
             $infoBlock = @unserialize($object->info);
@@ -49,6 +53,7 @@ class Peer {
                     $transactionInfo->timestamp
                 );
             }
+            $transactionsSynced = $transactions;
 
             $blockchainNull = "";
             $block = new Block(
@@ -72,7 +77,10 @@ class Peer {
             if ($block->isValid()) {
 
                 //We add the block to the chaindata and blockchain
-                $chaindata->addBlock($object->height,$block);
+                $gossip->chaindata->addBlock($object->height,$block);
+
+                //Save block pointer
+                $blockSynced = $block;
 
                 $blocksSynced++;
             } else {
@@ -80,7 +88,28 @@ class Peer {
                 break;
             }
         }
-        Display::_printer("%Y%Imported%W% new blocks headers              %G%count%W%=".$blocksSynced."             %G%current%W%=".$currentBlocks."   %G%total%W%=".$totalBlocks);
+
+        if ($blocksSynced == 1) {
+
+            $numBlock = $gossip->chaindata->GetNextBlockNum() - 1; //-1 because add this block before
+            $mini_hash = substr($blockSynced->hash,-12);
+            $mini_hash_previous = substr($blockSynced->previous,-12);
+
+            //We obtain the difference between the creation of the block and the completion of the mining
+            $minedTime = date_diff(
+                date_create(date('Y-m-d H:i:s', $blockSynced->timestamp)),
+                date_create(date('Y-m-d H:i:s', $blockSynced->timestamp_end))
+            );
+            $blockMinedInSeconds = $minedTime->format('%im%ss');
+
+            if ($transactionsSynced[0]->to == $gossip->coinbase) {
+                Display::_printer("%Y%Rewarded%W% new block headers               %G%nonce%W%=".$blockSynced->nonce."      %G%elapsed%W%=".$blockMinedInSeconds."     %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash."      %G%number%W%=".$numBlock."");
+            } else {
+                Display::_printer("%Y%Imported%W% new block headers               %G%nonce%W%=".$blockSynced->nonce."      %G%elapsed%W%=".$blockMinedInSeconds."     %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash."      %G%number%W%=".$numBlock."");
+            }
+        } else {
+            Display::_printer("%Y%Imported%W% new blocks headers              %G%count%W%=".$blocksSynced."             %G%current%W%=".$currentBlocks."   %G%total%W%=".$totalBlocks);
+        }
     }
 
     /**
