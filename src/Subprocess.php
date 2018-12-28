@@ -55,6 +55,31 @@ class Subprocess {
             Display::_debug("%Y%Started new subprocess%W%   %G%process%W%=".$fileProcess."    %G%params%W%=".$params);
     }
 
+    /**
+     * Restart a miner thread
+     *
+     * @param $lastBlock
+     * @param $directoryProcessFile
+     * @param $isTestnet
+     * @param $difficulty
+     * @param int $id
+     */
+    public static function RestartMinerThread($lastBlock,$directoryProcessFile,$isTestnet,$difficulty,$id=0) {
+
+        $network = "mainnet";
+        if ($isTestnet)
+            $network = "testnet";
+
+        $params = array(
+            $lastBlock['block_hash'],
+            $difficulty,
+            $id,
+            MINER_MAX_SUBPROCESS,
+            $network
+        );
+        self::newProcess($directoryProcessFile,'miner',$params,$id);
+    }
+
 }
 
 ?>

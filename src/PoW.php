@@ -48,7 +48,17 @@ class PoW {
         if (!file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MAIN_THREAD_CLOCK))
             die('MAINTHREAD NOT FOUND');
 
+        $countIdle = 0;
+
         while(!self::isValidNonce($message,$nonce,$difficulty,$max_difficulty)) {
+
+            $countIdle++;
+
+            //Update "pid" file every 1000 hashes
+            if ($countIdle % 1000 == 0) {
+                $countIdle = 0;
+                Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$startNonce,time());
+            }
 
             //Check if MainThread is alive
             if (@file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MAIN_THREAD_CLOCK)) {

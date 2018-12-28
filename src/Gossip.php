@@ -576,29 +576,49 @@ class Gossip {
                     else {
 
                         for($i=0;$i<MINER_MAX_SUBPROCESS;$i++){
-                            //Check if MinersThreads is alive
-                            if (@!file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$i) && @!file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_NEW_BLOCK)) {
+
+                            if (@file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_NEW_BLOCK))
+                                break;
+
+                            if (@!file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$i)) {
                                 Display::_printer("The miner thread #".$i." do not seem to respond. Restarting Thread");
 
                                 //Get info to pass miner
                                 $lastBlock = $this->chaindata->GetLastBlock();
                                 $directoryProcessFile = Tools::GetBaseDir()."subprocess".DIRECTORY_SEPARATOR;
 
-                                $network = "mainnet";
-                                if ($this->isTestNet)
-                                    $network = "testnet";
-
-                                $params = array(
-                                    $lastBlock['block_hash'],
-                                    $this->difficulty,
-                                    $i,
-                                    MINER_MAX_SUBPROCESS,
-                                    $network
-                                );
-                                Subprocess::newProcess($directoryProcessFile,'miner',$params,$i);
+                                Subprocess::RestartMinerThread($lastBlock,$directoryProcessFile,$this->isTestNet,$this->difficulty,$i);
 
                                 //Wait 0.5s
                                 usleep(500000);
+                            } else {
+                                $timeMiner = @file_get_contents(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$i);
+
+                                //Obtenemos la diferencia entre la creacion del bloque y la finalizacion del minado
+                                $minedTime = date_diff(
+                                    date_create(date('Y-m-d H:i:s', intval($timeMiner))),
+                                    date_create(date('Y-m-d H:i:s', time()))
+                                );
+                                $seconds = $minedTime->format('%s');
+                                if ($seconds >= MINER_TIMEOUT_CLOSE) {
+
+                                    if (DISPLAY_DEBUG) {
+                                        Display::_debug("MinerTimer  : " . intval($timeMiner));
+                                        Display::_debug("CurrentTimer: " . time());
+                                    }
+
+                                    Display::_printer("The miner thread #".$i." do not seem to respond (Timeout ".$seconds."s). Restarting Thread");
+
+                                    //Get info to pass miner
+                                    $lastBlock = $this->chaindata->GetLastBlock();
+                                    $directoryProcessFile = Tools::GetBaseDir()."subprocess".DIRECTORY_SEPARATOR;
+
+                                    Subprocess::RestartMinerThread($lastBlock,$directoryProcessFile,$this->isTestNet,$this->difficulty,$i);
+
+                                    //Wait 0.5s
+                                    usleep(500000);
+
+                                }
                             }
                         }
                     }
@@ -607,11 +627,14 @@ class Gossip {
                     if (@file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_NEW_BLOCK)) {
                         $blockMined = Tools::objectToObject(@unserialize(@file_get_contents(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_NEW_BLOCK)),'Block');
 
-                        //Display message
-                        Display::NewBlockMined($blockMined);
-
+                        if ($blockMined->isValid()) {
+                            Display::NewBlockMined($blockMined);
+                            //Tools::sendBlockMinedToNetworkWithSubprocess($this->chaindata,$blockMined);
+                        } else {
+                            Display::_printer("Block mined not valid");
+                        }
                         //Stop minning subprocess
-                        Tools::clearTmpFolder();
+                        //Tools::clearTmpFolder();
                         Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_STOP_MINING);
 
                         //Wait 2-2.5s
