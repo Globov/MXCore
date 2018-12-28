@@ -634,7 +634,7 @@ class Gossip {
                             Display::_printer("Block mined not valid");
                         }
                         //Stop minning subprocess
-                        //Tools::clearTmpFolder();
+                        Tools::clearTmpFolder();
                         Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_STOP_MINING);
 
                         //Wait 2-2.5s
