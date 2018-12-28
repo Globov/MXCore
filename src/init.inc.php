@@ -43,7 +43,7 @@ include(__DIR__.'/GenesisBlock.php');
 include(__DIR__.'/Peer.php');
 
 //MXC Version
-define("VERSION", "0.0.1");
+define("VERSION", "0.0.2");
 
 //OS INFO
 if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN')
