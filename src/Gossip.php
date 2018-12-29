@@ -514,7 +514,7 @@ class Gossip {
                     }
 
                     //We send the mined block to all connected peers
-                    Tools::sendBlockMinedToNetworkWithSubprocess($this->chaindata,$blockMinedByPeer);
+                    Tools::sendBlockMinedToNetworkWithSubprocess($this->chaindata,$blockMinedByPeer, true);
 
                     if ($blockMinedByPeer->transactions[0]->to == $this->coinbase) {
                         Display::_printer("%Y%Rewarded%W% new block headers               %G%nonce%W%=".$blockMinedByPeer->nonce."      %G%elapsed%W%=".$blockMinedInSeconds."     %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash."      %G%number%W%=".$numBlock."");
@@ -633,7 +633,7 @@ class Gossip {
 
                         if ($blockMined->isValid()) {
                             Display::NewBlockMined($blockMined);
-                            //Tools::sendBlockMinedToNetworkWithSubprocess($this->chaindata,$blockMined);
+                            Tools::sendBlockMinedToNetworkWithSubprocess($this->chaindata,$blockMined,true);
                         } else {
                             Display::_printer("Block mined not valid");
                         }
@@ -668,7 +668,7 @@ class Gossip {
                     $this->difficulty = $this->chaindata->GetLastBlock()['difficulty'];
 
                     //We check the difficulty
-                    if ($this->isTestNet)
+                    if (!$this->isTestNet)
                         Blockchain::checkDifficulty($this->chaindata,$this->difficulty);
 
                     //We clean the table of blocks mined by the peers
