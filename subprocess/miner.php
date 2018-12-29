@@ -102,11 +102,11 @@ $blockMined = new Block($previous_hash,$difficulty,$transactions,$lastBlock,$gen
 //Mine block
 $blockMined->mine();
 
-//Send block to network
-Tools::sendBlockMinedToNetwork($chaindata,$blockMined);
-
+//Write block
 Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_NEW_BLOCK,@serialize($blockMined));
 
 //Delete "pid" file
 @unlink(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$startNonce);
+
+//close thread
 die();

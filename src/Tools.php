@@ -146,10 +146,14 @@ class Tools {
      * @param $checkIfExistAndDelete
      */
     public static function writeFile($file,$content='',$checkIfExistAndDelete = false) {
+
         if ($checkIfExistAndDelete && @file_exists($file))
             @unlink($file);
 
-        @file_put_contents($file,$content);
+        $fp = @fopen($file, 'w');
+        @fwrite($fp, $content);
+        @fclose($fp);
+        @chmod($file, 0755);
     }
 
     /**
@@ -157,7 +161,6 @@ class Tools {
      */
     public static function clearTmpFolder() {
         @unlink(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_STOP_MINING);
-        @unlink(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_PROPAGATE_BLOCK);
         @unlink(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_STARTED);
         @unlink(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_TX_INFO);
         @unlink(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_NEW_BLOCK);
@@ -230,6 +233,9 @@ class Tools {
 
         if (!@file_exists(Tools::GetBaseDir().DIRECTORY_SEPARATOR."data".DIRECTORY_SEPARATOR."wallets"))
             @mkdir(Tools::GetBaseDir().DIRECTORY_SEPARATOR."data".DIRECTORY_SEPARATOR."wallets",755, true);
+
+        if (!@file_exists(Tools::GetBaseDir().DIRECTORY_SEPARATOR."tmp"))
+            @mkdir(Tools::GetBaseDir().DIRECTORY_SEPARATOR."tmp",755, true);
     }
 
     /**
