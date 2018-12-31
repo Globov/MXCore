@@ -76,14 +76,14 @@ if (DB_PASS == "DEFINE_YOUR_PASSWORD") {
 
 // checks for php extensions
 if (!extension_loaded("openssl") && !defined("OPENSSL_KEYTYPE_RSA")) {
-    Display::_printer("%LR%ERROR%W%    You must install the extension %LG%openssl%W% with %LG%OPENSSL_KEYTYPE_RSA");
+    Display::_error("You must install the extension %LG%openssl%W% with %LG%OPENSSL_KEYTYPE_RSA");
     if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN')
         readline("Press any Enter to close close window");
     exit();
 }
 
 if (!extension_loaded("mysqli")) {
-    Display::_printer("%LR%ERROR%W%    You must install the extension %LG%mysqli");
+    Display::_error("You must install the extension %LG%mysqli");
 
     if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN')
         readline("Press any Enter to close close window");
@@ -91,7 +91,7 @@ if (!extension_loaded("mysqli")) {
 }
 
 if (!extension_loaded("bcmath")) {
-    Display::_printer("%LR%ERROR%W%    You must install the extension %LG%bcmath");
+    Display::_error("You must install the extension %LG%bcmath");
     if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN')
         readline("Press any Enter to close close window");
     exit();
@@ -99,7 +99,7 @@ if (!extension_loaded("bcmath")) {
 
 // check php version
 if (floatval(phpversion()) < 7.0) {
-    Display::_printer("%LR%ERROR%W%    The minimum php version required is %LG%7.0");
+    Display::_error("The minimum php version required is %LG%7.0");
     if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN')
         readline("Press any Enter to close close window");
     exit();
@@ -107,8 +107,10 @@ if (floatval(phpversion()) < 7.0) {
 
 // check DB connection
 $db = new DB();
-if (!$db) {
-    Display::_printer("%LR%ERROR%W%    Could not connect to the DB");
+if ($db == null) {
+    Display::_error("Could not connect to the database");
+    Display::_error("Check CONFIG.php and setup correct mysql data");
+
     if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN')
         readline("Press any Enter to close close window");
     exit();
@@ -125,7 +127,7 @@ if (@file_exists("tmp".DIRECTORY_SEPARATOR."db.update")) {
         require_once __DIR__.'/schema.inc.php';
         exit();
     }
-    Display::_printer("%LR%ERROR%W%    Could not access the tmp/db.update file");
+    Display::_error("Could not access the tmp/db.update file");
     if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN')
         readline("Press any Enter to close close window");
     exit();

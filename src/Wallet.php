@@ -176,9 +176,10 @@ class Wallet {
      * @param $amount
      * @param $tx_fee
      * @param $isTestNet
+     * @param $cli
      * @return string
      */
-    public static function SendTransaction($wallet_from,$wallet_from_password,$wallet_to,$amount,$tx_fee,$isTestNet=false) {
+    public static function SendTransaction($wallet_from,$wallet_from_password,$wallet_to,$amount,$tx_fee,$isTestNet=false,$cli=true) {
 
         //Instance the pointer to the chaindata
         $chaindata = new DB();
@@ -238,9 +239,16 @@ class Wallet {
                     //We add the pending transaction to send into our chaindata
                     $chaindata->addPendingTransactionToSend($transaction->message(),$transaction);
 
-                    $return_message = "Transaction created successfully".PHP_EOL;
-                    $return_message .= "TX: ".ColorsCLI::$FG_GREEN. $transaction->message().ColorsCLI::$FG_WHITE.PHP_EOL;
+                    $return_message = "";
+                    if ($cli) {
+                        $return_message = "Transaction created successfully".PHP_EOL;
+                        $return_message .= "TX: ".ColorsCLI::$FG_GREEN. $transaction->message().ColorsCLI::$FG_WHITE.PHP_EOL;
+                    }
+                    else {
+                        $return_message = $transaction->message();
+                    }
                     return $return_message;
+
                 } else {
                     return "An error occurred while trying to create the transaction".PHP_EOL."The wallet_from password may be incorrect".PHP_EOL;
                 }

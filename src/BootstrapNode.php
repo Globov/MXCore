@@ -149,9 +149,10 @@ class BootstrapNode {
      *
      * @param DB $chaindata
      * @param int $lastBlockOnLocalBlockChain
+     * @param bool $isTestNet
      * @return mixed
      */
-    public static function SyncNextBlocksFrom(&$chaindata, $lastBlockOnLocalBlockChain,$isTestNet=false) {
+    public static function SyncNextBlocksFrom($lastBlockOnLocalBlockChain,$isTestNet=false) {
 
         if ($isTestNet) {
             $ip = NODE_BOOTSTRAP_TESTNET;
@@ -160,8 +161,6 @@ class BootstrapNode {
             $ip = NODE_BOOTSTRAP;
             $port = NODE_BOOSTRAP_PORT;
         }
-
-        $bootstrapNode = $chaindata->GetBootstrapNode();
 
         //Nos comunicamos con el BOOTSTRAP_NODE
         $infoToSend = array(

@@ -32,9 +32,11 @@ class DB {
     public function __construct() {
 
         //We create or load the database
-        $this->db = new mysqli(DB_HOST,DB_USER,DB_PASS,DB_NAME, DB_PORT);
+        $this->db = @new mysqli(DB_HOST,DB_USER,DB_PASS,DB_NAME, DB_PORT);
 
-        //We check if the tables needed for the blockchain are created
+        if (isset($this->db->connect_error) && $this->db->connect_error != null)
+            return null;
+
         $this->CheckIfExistTables();
     }
 
@@ -112,7 +114,7 @@ class DB {
         $info_block = $this->db->query($sql)->fetch_assoc();
         if (!empty($info_block)) {
 
-            $transactions_chaindata = $this->db->query("SELECT * FROM transactions WHERE block_hash = '".$info_block['block_hash']."';");
+            $transactions_chaindata = $this->db->query("SELECT * FROM transactions WHERE block_hash = '".$info_block['block_hash']."' ORDER BY tx_fee ASC, timestamp DESC;");
             $transactions = array();
             if (!empty($transactions_chaindata)) {
                 while ($transactionInfo = $transactions_chaindata->fetch_array(SQLITE3_ASSOC)) {
@@ -148,7 +150,7 @@ class DB {
      * @return mixed
      */
     public function GetTransactionByHash($hash) {
-        $sql = "SELECT * FROM transactions WHERE txn_hash = '".$hash."';";
+        $sql = "SELECT * FROM transactions WHERE txn_hash = '".$hash."' ORDER BY tx_fee ASC, timestamp DESC;";
         $info_txn = $this->db->query($sql)->fetch_assoc();
         if (!empty($info_txn)) {
             return $info_txn;
@@ -163,7 +165,7 @@ class DB {
      * @return mixed
      */
     public function GetPendingTransactionByHash($hash) {
-        $sql = "SELECT * FROM transactions_pending WHERE txn_hash = '".$hash."';";
+        $sql = "SELECT * FROM transactions_pending WHERE txn_hash = '".$hash."' ORDER BY tx_fee ASC, timestamp DESC;";
         $info_txn = $this->db->query($sql)->fetch_assoc();
         if (!empty($info_txn)) {
             return $info_txn;
@@ -249,7 +251,7 @@ class DB {
         $info_block = $this->db->query($sql)->fetch_assoc();
         if (!empty($info_block)) {
 
-            $transactions_chaindata = $this->db->query("SELECT * FROM transactions WHERE block_hash = '".$info_block['block_hash']."';");
+            $transactions_chaindata = $this->db->query("SELECT * FROM transactions WHERE block_hash = '".$info_block['block_hash']."' ORDER BY tx_fee ASC, timestamp DESC;");
             $transactions = array();
             if (!empty($transactions_chaindata)) {
                 while ($transactionInfo = $transactions_chaindata->fetch_array(MYSQLI_ASSOC)) {
@@ -309,7 +311,7 @@ class DB {
      */
     public function GetAllPendingTransactions() {
         $txs = array();
-        $txs_chaindata = $this->db->query("SELECT * FROM transactions_pending ORDER BY tx_fee ASC LIMIT 512");
+        $txs_chaindata = $this->db->query("SELECT * FROM transactions_pending ORDER BY tx_fee ASC, timestamp DESC LIMIT 512");
         if (!empty($txs_chaindata)) {
             while ($tx_chaindata = $txs_chaindata->fetch_array(MYSQLI_ASSOC)) {
                 if ($tx_chaindata['txn_hash'] != null && strlen($tx_chaindata['txn_hash']) > 0)
@@ -340,7 +342,7 @@ class DB {
      * @return bool
      */
     public function addPendingTransactionToSend($txHash,$transaction) {
-        $into_tx_pending = $this->db->query("SELECT txn_hash FROM transactions_pending_to_send WHERE txn_hash = '".$txHash."';")->fetch_assoc();
+        $into_tx_pending = $this->db->query("SELECT txn_hash FROM transactions_pending_to_send WHERE txn_hash = '".$txHash."' ORDER BY tx_fee ASC, timestamp DESC;")->fetch_assoc();
         if (empty($into_tx_pending)) {
 
             $wallet_from_pubkey = "";
@@ -387,7 +389,7 @@ class DB {
      */
     public function GetAllPendingTransactionsToSend() {
         $txs = array();
-        $txs_chaindata = $this->db->query("SELECT * FROM transactions_pending_to_send");
+        $txs_chaindata = $this->db->query("SELECT * FROM transactions_pending_to_send ORDER BY tx_fee ASC, timestamp DESC");
         if (!empty($txs_chaindata)) {
             while ($tx_chaindata = $txs_chaindata->fetch_array(MYSQLI_ASSOC)) {
                 $txs[] = $tx_chaindata;
@@ -596,7 +598,7 @@ class DB {
         if (!empty($blocks_chaindata)) {
             while ($blockInfo = $blocks_chaindata->fetch_array(MYSQLI_ASSOC)) {
 
-                $transactions_chaindata = $this->db->query("SELECT * FROM transactions WHERE block_hash = '".$blockInfo['block_hash']."';");
+                $transactions_chaindata = $this->db->query("SELECT * FROM transactions WHERE block_hash = '".$blockInfo['block_hash']."' ORDER BY tx_fee ASC, timestamp DESC;");
                 $transactions = array();
                 if (!empty($transactions_chaindata)) {
                     while ($transactionInfo = $transactions_chaindata->fetch_array(MYSQLI_ASSOC)) {
@@ -625,7 +627,7 @@ class DB {
         if (!empty($blocks_chaindata)) {
             while ($blockInfo = $blocks_chaindata->fetch_array(MYSQLI_ASSOC)) {
 
-                $transactions_chaindata = $this->db->query("SELECT * FROM transactions WHERE block_hash = '".$blockInfo['block_hash']."';");
+                $transactions_chaindata = $this->db->query("SELECT * FROM transactions WHERE block_hash = '".$blockInfo['block_hash']."' ORDER BY tx_fee ASC, timestamp DESC;");
                 $transactions = array();
                 if (!empty($transactions_chaindata)) {
                     while ($transactionInfo = $transactions_chaindata->fetch_array(MYSQLI_ASSOC)) {
@@ -657,7 +659,7 @@ class DB {
             $height = 0;
             while ($blockInfo = $blocks_chaindata->fetch_array(MYSQLI_ASSOC)) {
 
-                $transactions_chaindata = $this->db->query("SELECT * FROM transactions WHERE block_hash = '".$blockInfo['block_hash']."';");
+                $transactions_chaindata = $this->db->query("SELECT * FROM transactions WHERE block_hash = '".$blockInfo['block_hash']."' ORDER by tx_fee ASC, timestamp DESC;");
                 $transactions = array();
                 if (!empty($transactions_chaindata)) {
                     while ($transactionInfo = $transactions_chaindata->fetch_array(MYSQLI_ASSOC)) {
