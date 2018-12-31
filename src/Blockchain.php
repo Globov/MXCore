@@ -68,5 +68,63 @@ class Blockchain {
         }
         return false;
     }
+
+    /**
+     * Calc reward by block height
+     *
+     * @param $currentHeight
+     * @param bool $isTestNet
+     * @return string
+     */
+    public static function getRewardByHeight($currentHeight,$isTestNet=false) {
+
+        //Testnet will always be 50
+        if ($isTestNet)
+            return number_format("50", 8, '.', '');
+
+        // init reward Mainnet
+        $reward = 50;
+
+        //Get divisible num
+        $divisible = floor($currentHeight / 250000);
+        if ($divisible > 0) {
+
+            //Can't divide by 0
+            if ($divisible <= 0)
+                $divisible = 1;
+
+            // Get current reward
+            $reward = ($reward / $divisible) / 2;
+        }
+
+        //Reward can't be less than
+        if ($reward < 0.00000000)
+            $reward = 0;
+
+        return number_format($reward, 8, '.', '');
+    }
+
+    /**
+     * Calc total fees of pending transactions to add on new block
+     *
+     * @param $pendingTransactions
+     * @return string
+     */
+    public static function GetFeesOfTransactions($pendingTransactions) {
+
+        $totalFees = "0";
+        foreach ($pendingTransactions as $txn) {
+            $new_txn = new Transaction($txn['wallet_from_key'],$txn['wallet_to'], $txn['amount'], null,null, $txn['tx_fee'],true, $txn['txn_hash'], $txn['signature'], $txn['timestamp']);
+            if ($new_txn->isValid()) {
+                if ($txn['tx_fee'] == 3)
+                    $totalFees = bcadd($totalFees,"0.00001400",8);
+                else if ($txn['tx_fee'] == 2)
+                    $totalFees = bcadd($totalFees,"0.00000900",8);
+                else if ($txn['tx_fee'] == 1)
+                    $totalFees = bcadd($totalFees,"0.00000250",8);
+            }
+        }
+        return $totalFees;
+    }
 }
 ?>

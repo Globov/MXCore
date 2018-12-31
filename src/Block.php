@@ -182,6 +182,72 @@ class Block {
     }
 
     /**
+     * Get miner transaction
+     *
+     * @return bool|mixed
+     */
+    public function GetMinerTransaction() {
+        foreach ($this->transactions as $transaction) {
+            if ($transaction->from == "") {
+                if ($transaction->isValid()) {
+                    return $transaction;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Return total fees of transactions
+     *
+     * @return string
+     */
+    public function GetFeesOfTransactions() {
+        $totalFees = "0";
+        foreach ($this->transactions as $transaction) {
+            if ($transaction->isValid()) {
+                if ($transaction->tx_fee == 3)
+                    $totalFees = bcadd($totalFees,"0.00001400",8);
+                else if ($transaction->tx_fee == 2)
+                    $totalFees = bcadd($totalFees,"0.00000900",8);
+                else if ($transaction->tx_fee == 1)
+                    $totalFees = bcadd($totalFees,"0.00000250",8);
+            }
+            else
+                return null;
+        }
+        return $totalFees;
+    }
+
+    /**
+     * Check if reward miner is valid
+     *
+     * @param $heightBlock
+     * @param bool $isTestNet
+     * @return bool
+     */
+    public function isValidReward($heightBlock,$isTestNet=false) {
+
+        //Get miner transaction
+        $minerTransaction = $this->GetMinerTransaction();
+        if ($minerTransaction == null)
+            return false;
+
+        //Get total fees
+        $totalFeesTransactionBlock = $this->GetFeesOfTransactions();
+        if ($totalFeesTransactionBlock == null)
+            return false;
+
+        //Subtract total transaction fees from total mining transaction, result = miner reward
+        $minerRewardBlock = $minerTransaction->amount - $totalFeesTransactionBlock;
+
+        //Calc reward by height
+        $currentReward = Blockchain::getRewardByHeight($heightBlock,$isTestNet);
+
+        return ($minerRewardBlock == $currentReward);
+    }
+
+    /**
      * Check function if a block is valid or not
      * Check if all transactions in the block are valid
      * Check if the nonce corresponds to the content of all transactions + hash of the previous block
@@ -189,6 +255,9 @@ class Block {
      * @return bool
      */
     public function isValid() {
+
+        //Display::_printer("isValid()");
+
         $data = "";
         foreach ($this->transactions as $transaction) {
             if ($transaction->isValid())
@@ -196,7 +265,11 @@ class Block {
             else
                 return false;
         }
+
         $data .= $this->previous;
+
+        //Display::_printer("data: " . $data);
+
         return PoW::isValidNonce($data,$this->nonce,$this->difficulty, $this->info['max_difficulty']);
     }
 }

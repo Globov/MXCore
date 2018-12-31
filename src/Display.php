@@ -82,6 +82,18 @@ class Display {
     }
 
     /**
+     * Write a debug line in the CMD
+     * @param $string
+     */
+    public static function _error($string) {
+        $date = new DateTime();
+        $formatted_string = "%LR%ERROR%W% [".$date->format("m-d|H:i:s.u")."] ".$string."%W%".PHP_EOL;
+        $colored_string = self::_replaceColors($formatted_string);
+        echo $colored_string;
+        ob_flush();
+    }
+
+    /**
      * Line break
      */
     public static function _br() {

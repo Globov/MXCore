@@ -42,25 +42,29 @@ class Miner {
         for($i=0;$i<MINER_MAX_SUBPROCESS;$i++)
             @unlink(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$i);
 
+        //Get Last block
+        $lastBlock = $gossip->chaindata->GetLastBlock();
+
         //Get Pending transactions
         $transactions_pending = $gossip->chaindata->GetAllPendingTransactions();
 
-        //We calculate the commissions of the pending transactions
         $total_amount_to_miner = "0";
-        foreach ($transactions_pending as $txn) {
-            $new_txn = new Transaction($txn['wallet_from_key'],$txn['wallet_to'], $txn['amount'], null,null, $txn['tx_fee'],true, $txn['txn_hash'], $txn['signature'], $txn['timestamp']);
-            if ($new_txn->isValid()) {
-                if ($txn['tx_fee'] == 3)
-                    $total_amount_to_miner = bcadd($total_amount_to_miner,"0.00001400",8);
-                else if ($txn['tx_fee'] == 2)
-                    $total_amount_to_miner = bcadd($total_amount_to_miner,"0.00000900",8);
-                else if ($txn['tx_fee'] == 1)
-                    $total_amount_to_miner = bcadd($total_amount_to_miner,"0.00000250",8);
-            }
+
+        //We calculate the commissions of the pending transactions
+        $totalFees = Blockchain::GetFeesOfTransactions($transactions_pending);
+        if ($totalFees == null) {
+            Display::_error("Can't get total fees of transactions. Cancelling mining");
+            return null;
         }
 
-        //TODO - Implement halving system
-        $total_amount_to_miner = bcadd($total_amount_to_miner,"50",8);
+        //Add fees
+        $total_amount_to_miner = bcadd($total_amount_to_miner,strval($totalFees),8);
+
+        //Calc reward by height
+        $currentReward = Blockchain::getRewardByHeight($lastBlock['height']+1);
+
+        //we add the reward with transaction fees
+        $total_amount_to_miner = bcadd($total_amount_to_miner,strval($currentReward),8);
 
         //We created the mining reward txn + fees txns
         $tx = new Transaction(null,$gossip->coinbase, $total_amount_to_miner, $gossip->key->privKey,"","");
@@ -68,7 +72,7 @@ class Miner {
         //We take all pending transactions
         $transactions = array($tx);
 
-        //We add the transactions to the blockchain to generate the block
+        //We add pending transactions
         foreach ($transactions_pending as $txn) {
             $new_txn = new Transaction($txn['wallet_from_key'],$txn['wallet_to'], $txn['amount'], null,null, $txn['tx_fee'],true, $txn['txn_hash'], $txn['signature'], $txn['timestamp']);
             if ($new_txn->isValid())
@@ -82,9 +86,7 @@ class Miner {
         Tools::writeFile(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_STARTED);
 
         //Get info to pass miner
-        $lastBlock = $gossip->chaindata->GetLastBlock();
         $directoryProcessFile = Tools::GetBaseDir()."subprocess".DIRECTORY_SEPARATOR;
-
         $network = "mainnet";
         if ($gossip->isTestNet)
             $network = "testnet";
