@@ -105,6 +105,58 @@ class Blockchain {
     }
 
     /**
+     * Check if block received by peer is valid
+     * if it is valid, add the block to the temporary table so that the main process adds it to the blockchain
+     *
+     * @param DB $chaindata
+     * @param string $previousHashMyBlockchain
+     * @param Block $serializedBlockMined
+     * @return bool
+     */
+    public static function isValidBlockMinedByPeer(&$chaindata,$previousHashMyBlockchain, $serializedBlockMined) {
+
+        /** @var Block $blockMinedByPeer */
+        $blockMinedByPeer = Tools::objectToObject(@unserialize($serializedBlockMined),"Block");
+
+        if ($blockMinedByPeer == null)
+            return "0x00000004";
+
+        //If the previous block received by network refer to the last block of my blockchain
+        if ($blockMinedByPeer->previous != $previousHashMyBlockchain) {
+            $chaindata->AddMinedBlockByPeer($blockMinedByPeer,"0x00000003");
+            return "0x00000003";
+        }
+
+        //If the block is valid
+        if (!$blockMinedByPeer->isValid()) {
+            $chaindata->AddMinedBlockByPeer($blockMinedByPeer,"0x00000002");
+            return "0x00000002";
+        }
+
+        $isTestnet = false;
+        if ($chaindata->GetNetwork() == "testnet")
+            $isTestnet = true;
+
+        //Get next block height
+        $numBlock = $chaindata->GetNextBlockNum();
+
+        //Check if rewarded transaction is valid, prevent hack money
+        if ($blockMinedByPeer->isValidReward($numBlock,$isTestnet)) {
+
+            //Add this block in pending block
+            $chaindata->AddMinedBlockByPeer($blockMinedByPeer,"0x00000000");
+
+            //Propagate mined block to network
+            Tools::sendBlockMinedToNetworkWithSubprocess($chaindata,$blockMinedByPeer);
+
+            return "0x00000000";
+        } else {
+            $chaindata->AddMinedBlockByPeer($blockMinedByPeer,"0x00000001");
+            return "0x00000001";
+        }
+    }
+
+    /**
      * Calc total fees of pending transactions to add on new block
      *
      * @param $pendingTransactions

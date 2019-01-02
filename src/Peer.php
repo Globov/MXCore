@@ -87,11 +87,11 @@ class Peer {
 
                         $blocksSynced++;
                     } else {
-                        Display::_error("BLOCK: " . $block->hash . " Reward transaction not valid");
+                        Display::_error("Can't import block: " . $block->hash . " Reward transaction not valid");
                         break;
                     }
                 } else {
-                    Display::_error("BLOCK: " . $block->hash . " NO VALID");
+                    Display::_error("Can't import block: " . $block->hash . " - Block not valid");
                     break;
                 }
             }

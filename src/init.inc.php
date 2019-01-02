@@ -42,15 +42,6 @@ include(__DIR__.'/Miner.php');
 include(__DIR__.'/GenesisBlock.php');
 include(__DIR__.'/Peer.php');
 
-//MXC Version
-define("VERSION", "0.0.2");
-
-//OS INFO
-if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN')
-    define('IS_WIN',            TRUE);
-else
-    define('IS_WIN',            FALSE);
-
 //Start capturing flush
 ob_start();
 
@@ -117,7 +108,7 @@ if ($db == null) {
 }
 
 //Get Config
-$_CONFIG = $db->GetConfig();
+$_CONFIG = $db->GetAllConfig();
 
 // check need update database schema
 if (@file_exists("tmp".DIRECTORY_SEPARATOR."db.update")) {

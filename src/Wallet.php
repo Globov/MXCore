@@ -194,10 +194,10 @@ class Wallet {
         if (bccomp($amount ,"0.00000001",8) == -1)
             return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." Minium to send 0.00000001".PHP_EOL;
 
-        if ($tx_fee == 3 && bccomp($amount ,"0.00014000",8) == -1)
+        if ($tx_fee == 3 && bccomp($amount ,"0.00001400",8) == -1)
             return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." There is not enough balance in the account".PHP_EOL;
 
-        if ($tx_fee == 2 && bccomp($amount ,"0.00009000",8) == -1)
+        if ($tx_fee == 2 && bccomp($amount ,"0.00000900",8) == -1)
             return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." There is not enough balance in the account".PHP_EOL;
 
         if ($tx_fee == 1 && bccomp($amount ,"0.00000250",8) == -1)

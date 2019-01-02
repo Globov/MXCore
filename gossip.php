@@ -41,6 +41,7 @@ include('src/Miner.php');
 
 $return = array(
     'status'    => false,
+    'error'     => null,
     'message'   => null,
     'result'    => null
 );
@@ -77,8 +78,31 @@ if (isset($_REQUEST)) {
             break;
             case 'MINEDBLOCK':
                 if (isset($_REQUEST['hash_previous']) && isset($_REQUEST['block'])) {
-                    $return['status'] = true;
-                    $chaindata->AddMinedBlockByPeer($_REQUEST['hash_previous'],$_REQUEST['block']);
+
+                    //Get last block
+                    $lastBlock = $chaindata->GetLastBlock();
+
+                    if ($lastBlock['block_hash'] == $_REQUEST['hash_previous']) {
+
+                        //Valid block to add in Blockchain
+                        $returnCode = Blockchain::isValidBlockMinedByPeer($chaindata,$lastBlock['block_hash'],$_REQUEST['block']);
+                        if ($returnCode == "0x00000000") {
+                            $return['status'] = true;
+                            $return['error'] = $returnCode;
+                        }
+                        else {
+                            $return['status'] = false;
+                            $return['error'] = $returnCode;
+                        }
+                    }
+                    else {
+                        //TODO Check if peer have more block than me, > = sync || < = send order to peer to synchronize with me
+                        $return['status'] = false;
+                        $return['error'] = "0x00000003";
+                    }
+                } else {
+                    $return['status'] = false;
+                    $return['error'] = "0x10000000";
                 }
             break;
             case 'HELLOBOOTSTRAP':

@@ -65,13 +65,13 @@ if ($blockMined != null && is_object($blockMined)) {
     );
 
     if ($peerIP == NODE_BOOTSTRAP) {
-        Tools::postContent('https://'.NODE_BOOTSTRAP.'/gossip.php', $infoToSend,5);
+        Tools::postContent('https://'.NODE_BOOTSTRAP.'/gossip.php', $infoToSend,60);
     }
     else if ($peerIP == NODE_BOOTSTRAP_TESTNET) {
-        Tools::postContent('https://'.NODE_BOOTSTRAP_TESTNET.'/gossip.php', $infoToSend,5);
+        Tools::postContent('https://'.NODE_BOOTSTRAP_TESTNET.'/gossip.php', $infoToSend,60);
     }
     else {
-        Tools::postContent('http://' . $peerIP . ':' . $peerPORT . '/gossip.php', $infoToSend,5);
+        Tools::postContent('http://' . $peerIP . ':' . $peerPORT . '/gossip.php', $infoToSend,60);
     }
 }
 die();
