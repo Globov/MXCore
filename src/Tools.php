@@ -214,7 +214,8 @@ class Tools {
             //Params for subprocess
             $params = array(
                 $peer['ip'],
-                $peer['port']
+                $peer['port'],
+                1
             );
 
             //Run subprocess propagation

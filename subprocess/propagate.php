@@ -55,9 +55,13 @@ if (!isset($argv[2]))
 if (!isset($argv[3]))
     die("Peer PORT not defined");
 
+if (!isset($argv[4]))
+    die("Num retrys not defined");
+
 $id = $argv[1];
 $peerIP = $argv[2];
 $peerPORT = $argv[3];
+$numRetrys = $argv[4];
 
 //Load Block class from cache file
 $blockMined = Tools::objectToObject(@unserialize(@file_get_contents(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_PROPAGATE_BLOCK)),"Block");
@@ -69,13 +73,34 @@ if ($blockMined != null && is_object($blockMined)) {
     );
 
     if ($peerIP == NODE_BOOTSTRAP) {
-        Tools::postContent('https://'.NODE_BOOTSTRAP.'/gossip.php', $infoToSend,60);
+        $response = Tools::postContent('https://'.NODE_BOOTSTRAP.'/gossip.php', $infoToSend,60);
     }
     else if ($peerIP == NODE_BOOTSTRAP_TESTNET) {
-        Tools::postContent('https://'.NODE_BOOTSTRAP_TESTNET.'/gossip.php', $infoToSend,60);
+        $response = Tools::postContent('https://'.NODE_BOOTSTRAP_TESTNET.'/gossip.php', $infoToSend,60);
     }
     else {
-        Tools::postContent('http://' . $peerIP . ':' . $peerPORT . '/gossip.php', $infoToSend,60);
+        $response = Tools::postContent('http://' . $peerIP . ':' . $peerPORT . '/gossip.php', $infoToSend,60);
+    }
+
+    $retryConnection = false;
+
+    if (!isset($response->status))
+        $retryConnection = true;
+
+    if (isset($response->status) && (!$response->status)) {
+        $retryConnection = true;
+    }
+
+    //Retry propagation block
+    if ($retryConnection && $numRetrys <= 5) {
+        $params = array(
+            $peerIP,
+            $peerPORT,
+            ($numRetrys+1)
+        );
+
+        //Run subprocess propagation
+        Subprocess::newProcess(Tools::GetBaseDir()."subprocess".DIRECTORY_SEPARATOR,'propagate',$params,$id);
     }
 }
 die();
