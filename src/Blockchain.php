@@ -98,7 +98,7 @@ class Blockchain {
         }
 
         //Reward can't be less than
-        if ($reward < 0.00000000)
+        if ($reward < 1)
             $reward = 0;
 
         return number_format($reward, 8, '.', '');

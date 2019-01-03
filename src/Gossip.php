@@ -503,7 +503,7 @@ class Gossip {
                     if ($blockPending['transactions'][0]['wallet_to'] == $this->coinbase)
                         $typeMessage = "Rewarded";
 
-                    Display::_printer("%Y%".$typeMessage."%W% new block headers               %G%nonce%W%=".$blockPending['nonce']."      %G%elapsed%W%=".$blockMinedInSeconds."     %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash."      %G%number%W%=".$numBlock);
+                    Display::_printer("%Y%".$typeMessage."%W% new block headers               %G%nonce%W%=".$blockPending['nonce']."        %G%elapsed%W%=".$blockMinedInSeconds."     %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash."      %G%number%W%=".$numBlock);
                 } else {
                     Display::_error("Can't add block to blockchain               %G%nonce%W%=".$blockPending['nonce']."      %G%elapsed%W%=".$blockMinedInSeconds."     %G%previous%W%=".$mini_hash_previous."   %G%hash%W%=".$mini_hash."      %G%number%W%=".$numBlock);
                 }
@@ -565,7 +565,7 @@ class Gossip {
             $hashRateMiner = null;
         }
         if ($hashRateMiner != null)
-            Display::_printer("Miners current hash rate: %Y%" . $hashRateMiner);
+            Display::_printer("Miners Threads Status                    %G%count%W%=".$multiplyNonce."            %G%hashRate%W%=" . $hashRateMiner);
     }
 
 
@@ -718,22 +718,26 @@ class Gossip {
                 continue;
             }
 
+            if (!$this->bootstrap_node && $this->connected_to_bootstrap) {
+                //We get the last block from the BootstrapNode
+                $lastBlock_BootstrapNode = BootstrapNode::GetLastBlockNum($this->chaindata,$this->isTestNet);
+                $lastBlock_LocalNode = $this->chaindata->GetNextBlockNum();
 
-            //We get the last block from the BootstrapNode and compare it with our local
-            $bootstrapNode_lastBlock = ($this->bootstrap_node == true) ? $this->chaindata->GetNextBlockNum():BootstrapNode::GetLastBlockNum($this->chaindata,$this->isTestNet);
-            $local_lastBlock = $this->chaindata->GetNextBlockNum();
 
-            if ($local_lastBlock < $bootstrapNode_lastBlock) {
+                //We check if we need to synchronize or not
+                if ($lastBlock_LocalNode < $lastBlock_BootstrapNode) {
+                    //Display::_printer("%LR%DeSync detected %W%- Downloading blocks (%G%" . $lastBlock_LocalNode . "%W%/%Y%" . $lastBlock_BootstrapNode . ")");
 
-                if ($this->enable_mine && @file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_STARTED)) {
-                    //Stop minning subprocess
-                    Tools::clearTmpFolder();
-                    Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_STOP_MINING);
-                    Display::_printer("%Y%Miner work cancelled%W%     Imported new headers");
+                    if ($this->enable_mine && @file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_STARTED)) {
+                        //Stop minning subprocess
+                        Tools::clearTmpFolder();
+                        Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_STOP_MINING);
+                        Display::_printer("%Y%Miner work cancelled%W%     Imported new headers");
+                    }
+
+                    //We declare that we are synchronizing
+                    $this->syncing = true;
                 }
-
-                $this->syncing = true;
-                continue;
             }
 
             $this->loop_x10();
