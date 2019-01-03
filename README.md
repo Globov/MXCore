@@ -1,7 +1,10 @@
 # MXCore
 PHP cryptocurrency
 
-PoW sha256
+- PoW sha256
+- Total coins: 56,240,067 MXC
+- Blocks every 8 min (average)
+- Halving: every 250000 blocks decrease the reward by half
 
 # Requisites
 
@@ -22,9 +25,7 @@ PoW sha256
 - Make MX Console Client
 - ~~- Make testnet~~
 - ~~- Multithread~~
-- Add more bootstrap nodes
-- Add version system
-- Add PoolMinning system
+- Add version system to make hardforks
   
 # Public Explorer MXCoin (MAINNET)
 
