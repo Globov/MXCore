@@ -417,6 +417,10 @@ class Gossip {
         if ($this->loop_x5 == 5) {
             $this->loop_x5 = 0;
 
+            //If have miners show log
+            if ($this->enable_mine)
+                $this->ShowInfoSubprocessMiners();
+
             if ($this->syncing)
                 return;
 
@@ -520,6 +524,51 @@ class Gossip {
         }
     }
 
+
+    /**
+     * Show subprocess log
+     */
+    public function ShowInfoSubprocessMiners() {
+
+        //Check if miners are enabled
+        if (@!file_exists(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_STARTED))
+            return;
+
+        $hashRateMiner = 0;
+        $multiplyNonce = 0;
+        for ($i=0;$i<MINER_MAX_SUBPROCESS;$i++) {
+            $file = Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$i."_hashrate";
+            if (@file_exists($file)) {
+                $tmpHashRateMiner = @intval(@file_get_contents($file));
+                if ($tmpHashRateMiner > 0) {
+                    $multiplyNonce++;
+                    $hashRateMiner += $tmpHashRateMiner;
+                }
+                @unlink($file);
+            }
+        }
+
+        if ($hashRateMiner > 1000000000) {
+            $hashRateMiner = $hashRateMiner / 1000000000;
+            $hashRateMiner = number_format($hashRateMiner,2)." GH/s";
+        }
+        else if ($hashRateMiner > 1000000) {
+            $hashRateMiner = $hashRateMiner / 1000000;
+            $hashRateMiner = number_format($hashRateMiner,2)." MH/s";
+        }
+        else if ($hashRateMiner > 1000) {
+            $hashRateMiner = $hashRateMiner / 1000;
+            $hashRateMiner = number_format($hashRateMiner,2)." KH/s";
+        } else if ($hashRateMiner > 0) {
+            $hashRateMiner = number_format($hashRateMiner,2)." H/s";
+        } else {
+            $hashRateMiner = null;
+        }
+        if ($hashRateMiner != null)
+            Display::_printer("Miners current hash rate: %Y%" . $hashRateMiner);
+    }
+
+
     /**
      * General loop of the node
      */
@@ -596,7 +645,7 @@ class Gossip {
                                 $seconds = $minedTime->format('%s');
                                 if ($seconds >= MINER_TIMEOUT_CLOSE) {
 
-                                    if (DISPLAY && DISPLAY_DEBUG_LEVEL >= 4) {
+                                    if (DISPLAY_DEBUG && DISPLAY_DEBUG_LEVEL >= 4) {
                                         Display::_debug("MinerTimer  : " . intval($timeMiner));
                                         Display::_debug("CurrentTimer: " . time());
                                     }

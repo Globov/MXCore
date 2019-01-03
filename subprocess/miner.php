@@ -47,31 +47,36 @@ include(__DIR__.DIRECTORY_SEPARATOR.'..'.DIRECTORY_SEPARATOR.'src'.DIRECTORY_SEP
 date_default_timezone_set("UTC");
 
 if (!isset($argv[1]))
-    die('Previous hash not defined');
+    die('ID hash not defined');
 
 if (!isset($argv[2]))
-    die('Difficulty not defined');
+    die('Previous hash not defined');
 
 if (!isset($argv[3]))
-    die('StartNonce not defined');
+    die('Difficulty not defined');
 
 if (!isset($argv[4]))
-    die('IncrementNonce not defined');
+    die('StartNonce not defined');
 
 if (!isset($argv[5]))
+    die('IncrementNonce not defined');
+
+if (!isset($argv[6]))
     die('Network not defined');
 
-$previous_hash = $argv[1];
+
+$id = $argv[1];
+$previous_hash = $argv[2];
 if ($previous_hash == 'null')
     $previous_hash = '';
 
-$difficulty = $argv[2];
-$startNonce = $argv[3];
-$incrementNonce = $argv[4];
-$network = $argv[5];
+$difficulty = $argv[3];
+$startNonce = $argv[4];
+$incrementNonce = $argv[5];
+$network = $argv[6];
 
 //Create "pid" file
-Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$startNonce,time());
+Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$id,time());
 
 $chaindata = new DB();
 $genesisBlock = $chaindata->GetGenesisBlock();
@@ -79,18 +84,18 @@ $lastBlock = $chaindata->GetLastBlock();
 
 if (@file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_STOP_MINING)) {
     //Delete "pid" file
-    @unlink(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$startNonce);
+    @unlink(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$id);
     die('STOP MINNING');
 }
 
 if (@file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_NEW_BLOCK)) {
     //Delete "pid" file
-    @unlink(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$startNonce);
+    @unlink(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$id);
     die('STOP MINNING');
 }
 if (!file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_TX_INFO)) {
     //Delete "pid" file
-    @unlink(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$startNonce);
+    @unlink(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$id);
     die('STOP MINNING');
 }
 
@@ -100,7 +105,7 @@ $transactions = @unserialize(@file_get_contents(Tools::GetBaseDir().'tmp'.DIRECT
 $blockMined = new Block($previous_hash,$difficulty,$transactions,$lastBlock,$genesisBlock,$startNonce,$incrementNonce);
 
 //Mine block
-$blockMined->mine();
+$blockMined->mine($id);
 
 //Write block
 Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_NEW_BLOCK,@serialize($blockMined));

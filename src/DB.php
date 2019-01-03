@@ -884,13 +884,6 @@ class DB {
           PRIMARY KEY (`ip`,`port`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
         ");
-        $this->db->query("
-        CREATE TABLE IF NOT EXISTS `mined_blocks_by_peers` (
-          `previous_hash` varchar(64) NOT NULL,
-          `block` blob NOT NULL,
-          PRIMARY KEY (`previous_hash`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-        ");
     }
 
 }

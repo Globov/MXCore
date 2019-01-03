@@ -45,6 +45,9 @@ class Subprocess {
         if (is_array($params))
             $params = implode(" ",$params);
 
+        //add id as first param
+        $params = $id . " " . $params;
+
         if (IS_WIN)
             @pclose(@popen('start /B cmd /C "'.PHP_RUN_COMMAND.' '.$directory.$fileProcess.'.php '.$params.' >NUL 2>NUL"', 'r'));
             //@pclose(@popen('start cmd /C "'.PHP_RUN_COMMAND.' '.$directory.$fileProcess.'.php '.$params.' >NUL 2>NUL"', 'r'));

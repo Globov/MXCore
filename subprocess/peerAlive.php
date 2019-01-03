@@ -47,13 +47,17 @@ include(__DIR__.DIRECTORY_SEPARATOR.'..'.DIRECTORY_SEPARATOR.'src'.DIRECTORY_SEP
 date_default_timezone_set("UTC");
 
 if (!isset($argv[1]))
-    die("Peer IP not defined");
+    die("ID not defined");
 
 if (!isset($argv[2]))
+    die("Peer IP not defined");
+
+if (!isset($argv[3]))
     die("Peer PORT not defined");
 
-$peerIP = $argv[1];
-$peerPORT = $argv[2];
+$id = $argv[1];
+$peerIP = $argv[2];
+$peerPORT = $argv[3];
 
 $chaindata = new DB();
 
