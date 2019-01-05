@@ -39,8 +39,10 @@ class Miner {
         @unlink(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_NEW_BLOCK);
 
         //Clear subprocess files
-        for($i=0;$i<MINER_MAX_SUBPROCESS;$i++)
+        for($i=0;$i<MINER_MAX_SUBPROCESS;$i++) {
             @unlink(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$i);
+            @unlink(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$i."_hashrate");
+        }
 
         //Get Last block
         $lastBlock = $gossip->chaindata->GetLastBlock();
@@ -93,6 +95,11 @@ class Miner {
 
         //Start subprocess miners
         for ($i = 0; $i < MINER_MAX_SUBPROCESS; $i++) {
+
+            $logMinerProcess = "false";
+            if ($i == (MINER_MAX_SUBPROCESS-1))
+                $logMinerProcess = "true";
+
             $params = array(
                 $lastBlock['block_hash'],
                 $gossip->difficulty,

@@ -45,13 +45,16 @@ class Subprocess {
         if (is_array($params))
             $params = implode(" ",$params);
 
+        //add id as first param
+        $params = $id . " " . $params;
+
         if (IS_WIN)
             @pclose(@popen('start /B cmd /C "'.PHP_RUN_COMMAND.' '.$directory.$fileProcess.'.php '.$params.' >NUL 2>NUL"', 'r'));
             //@pclose(@popen('start cmd /C "'.PHP_RUN_COMMAND.' '.$directory.$fileProcess.'.php '.$params.' >NUL 2>NUL"', 'r'));
         else
             system(PHP_RUN_COMMAND." ".$directory.$fileProcess.".php ".$params." > /dev/null 2>&1 &");
 
-        if (DISPLAY_DEBUG)
+        if (DISPLAY_DEBUG && DISPLAY_DEBUG_LEVEL >= 2)
             Display::_debug("%Y%Started new subprocess%W%   %G%process%W%=".$fileProcess."    %G%params%W%=".$params);
     }
 

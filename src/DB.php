@@ -50,7 +50,12 @@ class DB {
         return false;
     }
 
-    public function GetConfig() {
+    /**
+     * Get all config
+     *
+     * @return array
+     */
+    public function GetAllConfig() {
         $_CONFIG = array();
         $query = $this->db->query("SELECT cfg, val FROM config");
         if (!empty($query)) {
@@ -58,6 +63,48 @@ class DB {
                 $_CONFIG[$cfg['cfg']] = trim($cfg['val']);
         }
         return $_CONFIG;
+    }
+
+    /**
+     * Get config
+     *
+     * @param $key
+     * @return array
+     */
+    public function GetConfig($key) {
+        $currentConfig = $this->db->query("SELECT val FROM config WHERE cfg = '".$key."';")->fetch_assoc();
+        if (!empty($currentConfig)) {
+            return $currentConfig;
+        }
+        return null;
+    }
+
+    /**
+     * Save config on database
+     *
+     * @param $key
+     * @param $value
+     */
+    public function SetConfig($key,$value) {
+        $currentConfig = $this->db->query("SELECT val FROM config WHERE cfg = '".$key."';")->fetch_assoc();
+        if (empty($currentConfig)) {
+            $this->db->query("INSERT INTO config (cfg,val) VALUES ('".$key."', '".$value."');");
+        }
+        else {
+            $this->db->query("UPDATE config SET val='".$value."' WHERE cfg='".$key."'");
+        }
+    }
+
+    /**
+     * Get current network
+     *
+     * @return string
+     */
+    public function GetNetwork() {
+        $currentNetwork = $this->db->query("SELECT val FROM config WHERE cfg = 'network';")->fetch_assoc();
+        if (!empty($currentConfig))
+            return strtolower($currentNetwork['val']);
+        return "mainnet";
     }
 
     /**
@@ -102,6 +149,77 @@ class DB {
         }
         return false;
     }
+
+    /**
+     * Remove a peer from the chaindata
+     *
+     * @param $ip
+     * @param $port
+     * @return bool
+     */
+    public function removePeer($ip,$port) {
+        //Comprobamos que no hayamos registrado ya este bloque minado
+        $info_mined_blocks_by_peer = $this->db->query("SELECT ip FROM peers WHERE ip = '".$ip."' AND port = '".$port."';")->fetch_assoc();
+        if (!empty($info_mined_blocks_by_peer)) {
+            if ($this->db->query("DELETE FROM peers WHERE ip = '".$ip."' AND port= '".$port."';"))
+                return true;
+        }
+        return false;
+    }
+
+    /**
+     * Returns an array with all the peers
+     *
+     * @return array
+     */
+    public function GetAllPeers() {
+        $peers = array();
+        $peers_chaindata = $this->db->query("SELECT * FROM peers ORDER BY id");
+        if (!empty($peers_chaindata)) {
+            while ($peer = $peers_chaindata->fetch_array(MYSQLI_ASSOC)) {
+                $ip = str_replace("\r","",$peer['ip']);
+                $ip = str_replace("\n","",$ip);
+
+                $port = str_replace("\r","",$peer['port']);
+                $port = str_replace("\n","",$port);
+
+                $infoPeer = array(
+                    'ip' => $ip,
+                    'port' => $port
+                );
+                $peers[] = $infoPeer;
+            }
+        }
+        return $peers;
+    }
+
+    /**
+     * Returns an array with 25 random peers
+     *
+     * @return array
+     */
+    public function GetPeers() {
+        $peers = array();
+        $peers_chaindata = $this->db->query("SELECT * FROM peers LIMIT 25");
+        if (!empty($peers_chaindata)) {
+            while ($peer = $peers_chaindata->fetch_array(MYSQLI_ASSOC)) {
+                $infoPeer = array(
+                    'ip' => $peer['ip'],
+                    'port' => $peer['port']
+                );
+                $peers[] = $infoPeer;
+            }
+        }
+        return $peers;
+    }
+
+
+
+
+
+
+
+
 
     /**
      * Returns a block given a hash
@@ -363,9 +481,7 @@ class DB {
     /**
      * Delete a pending transaction
      *
-     * @param $ip
-     * @param $port
-     * @return bool
+     * @param $txHash
      */
     public function removePendingTransaction($txHash) {
         $this->db->query("DELETE FROM transactions_pending WHERE txn_hash='".$txHash."';");
@@ -374,12 +490,28 @@ class DB {
     /**
      * Delete a pending transaction to send
      *
-     * @param $ip
-     * @param $port
-     * @return bool
+     * @param $txHash
      */
     public function removePendingTransactionToSend($txHash) {
         $this->db->query("DELETE FROM transactions_pending_to_send WHERE txn_hash='".$txHash."';");
+    }
+
+    /**
+     * Delete transaction from temp table
+     *
+     * @param $txHash
+     */
+    public function removePendingTransactionByPeers($txHash) {
+        $this->db->query("DELETE FROM transactions_pending_by_peers WHERE txn_hash='".$txHash."';");
+    }
+
+    /**
+     * Delete block from temp table
+     *
+     * @param $blockHash
+     */
+    public function removeBlockPendingByPeers($blockHash) {
+        $this->db->query("DELETE FROM blocks_pending_by_peers WHERE block_previous='".$blockHash."';");
     }
 
     /**
@@ -399,73 +531,10 @@ class DB {
     }
 
     /**
-     * Remove a peer from the chaindata
-     *
-     * @param $ip
-     * @param $port
-     * @return bool
-     */
-    public function removePeer($ip,$port) {
-        //Comprobamos que no hayamos registrado ya este bloque minado
-        $info_mined_blocks_by_peer = $this->db->query("SELECT ip FROM peers WHERE ip = '".$ip."' AND port = '".$port."';")->fetch_assoc();
-        if (!empty($info_mined_blocks_by_peer)) {
-            if ($this->db->query("DELETE FROM peers WHERE ip = '".$ip."' AND port= '".$port."';"))
-                return true;
-        }
-        return false;
-    }
-
-    /**
-     * Returns an array with all the peers
-     *
-     * @return array
-     */
-    public function GetAllPeers() {
-        $peers = array();
-        $peers_chaindata = $this->db->query("SELECT * FROM peers ORDER BY id");
-        if (!empty($peers_chaindata)) {
-            while ($peer = $peers_chaindata->fetch_array(MYSQLI_ASSOC)) {
-                $ip = str_replace("\r","",$peer['ip']);
-                $ip = str_replace("\n","",$ip);
-
-                $port = str_replace("\r","",$peer['port']);
-                $port = str_replace("\n","",$port);
-
-                $infoPeer = array(
-                    'ip' => $ip,
-                    'port' => $port
-                );
-                $peers[] = $infoPeer;
-            }
-        }
-        return $peers;
-    }
-
-    /**
-     * Returns an array with 25 random peers
-     *
-     * @return array
-     */
-    public function GetPeers() {
-        $peers = array();
-        $peers_chaindata = $this->db->query("SELECT * FROM peers LIMIT 25");
-        if (!empty($peers_chaindata)) {
-            while ($peer = $peers_chaindata->fetch_array(MYSQLI_ASSOC)) {
-                $infoPeer = array(
-                    'ip' => $peer['ip'],
-                    'port' => $peer['port']
-                );
-                $peers[] = $infoPeer;
-            }
-        }
-        return $peers;
-    }
-
-    /**
      * Add a block in the chaindata
      *
-     * @param $blockNum
-     * @param $blockInfo
+     * @param int $blockNum
+     * @param Block $blockInfo
      * @return bool
      */
     public function addBlock($blockNum,$blockInfo) {
@@ -501,7 +570,13 @@ class DB {
                     $this->removePendingTransaction($transaction->message());
                     $this->removePendingTransactionToSend($transaction->message());
 
+                    //Remove transaction from tmp table
+                    $this->removePendingTransactionByPeers($transaction->message());
                 }
+
+                //Remove block from tmp table
+                $this->removeBlockPendingByPeers($blockInfo->hash);
+
                 return true;
             }
         }
@@ -509,18 +584,83 @@ class DB {
     }
 
     /**
-     * Add a block mined by a peer by saving the previous_hash and the mined block
+     * Add a block in the chaindata
      *
-     * @param string $previous_hash
-     * @param Block $SerializedBlockMined
+     * @param int $blockNum
+     * @param array $blockInfo
      * @return bool
      */
-    public function AddMinedBlockByPeer($previous_hash, $blockMined) {
-        //Check if block is in table
-        $info_mined_blocks_by_peer = $this->db->query("SELECT previous_hash FROM mined_blocks_by_peers WHERE previous_hash = '".$previous_hash."';")->fetch_assoc();
-        if (empty($info_mined_blocks_by_peer)) {
-            if ($this->db->query("INSERT INTO mined_blocks_by_peers (previous_hash,block) VALUES ('" . $previous_hash . "', '" . $blockMined . "');"))
+    public function addBlockFromArray($blockNum,$blockInfo) {
+        $info_block_chaindata = $this->db->query("SELECT block_hash FROM blocks WHERE block_hash = '".$blockInfo['block_hash']."';")->fetch_assoc();
+        if (empty($info_block_chaindata)) {
+
+            //SQL Insert Block
+            $sqlInsertBlock = "INSERT INTO blocks (height,block_previous,block_hash,root_merkle,nonce,timestamp_start_miner,timestamp_end_miner,difficulty,version,info)
+            VALUES (".$blockNum.",'".$blockInfo['block_previous']."','".$blockInfo['block_hash']."','".$blockInfo['root_merkle']."','".$blockInfo['nonce']."','".$blockInfo['timestamp_start_miner']."','".$blockInfo['timestamp_end_miner']."','".$blockInfo['difficulty']."','".$blockInfo['version']."','".$blockInfo['info']."');";
+
+            //Add block into blockchain
+            if ($this->db->query($sqlInsertBlock)) {
+
+                foreach ($blockInfo['transactions'] as $transaction) {
+                    $sqlInsertTransaction = "INSERT INTO transactions (block_hash, txn_hash, wallet_from_key, wallet_from, wallet_to, amount, signature, tx_fee, timestamp) 
+                    VALUES ('".$blockInfo['block_hash']."','".$transaction['txn_hash']."','".$transaction['wallet_from_key']."','".$transaction['wallet_from']."','".$transaction['wallet_to']."','".$transaction['amount']."','".$transaction['signature']."','".$transaction['tx_fee']."','".$transaction['timestamp']."');";
+
+                    //Add transaction block into blockchain
+                    if ($this->db->query($sqlInsertTransaction)) {
+
+                        //We eliminated the pending transaction
+                        $this->removePendingTransaction($transaction['txn_hash']);
+                        $this->removePendingTransactionToSend($transaction['txn_hash']);
+
+                        //Remove transaction from tmp table
+                        $this->removePendingTransactionByPeers($transaction['txn_hash']);
+                    }
+                }
+
+                //Remove block from tmp table
+                $this->removeBlockPendingByPeers($blockInfo['block_previous']);
+
                 return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Add a block mined by a peer
+     * this block will be added from the main process
+     *
+     * @param Block $minedBlock
+     * @param string $status
+     * @return bool
+     */
+    public function AddMinedBlockByPeer($minedBlock,$status) {
+
+        $info_block_chaindata = $this->db->query("SELECT block_hash FROM blocks_pending_by_peers WHERE block_hash = '".$minedBlock->hash."';")->fetch_assoc();
+        if (empty($info_block_chaindata)) {
+
+            //First add transactions
+            foreach ($minedBlock->transactions as $transaction) {
+
+                $wallet_from_pubkey = "";
+                $wallet_from = "";
+                if ($transaction->from != null) {
+                    $wallet_from_pubkey = $transaction->from;
+                    $wallet_from = Wallet::GetWalletAddressFromPubKey($transaction->from);
+                }
+
+                $sql_update_transactions = "INSERT INTO transactions_pending_by_peers (block_hash, txn_hash, wallet_from_key, wallet_from, wallet_to, amount, signature, tx_fee, timestamp) 
+                    VALUES ('".$minedBlock->hash."','".$transaction->message()."','".$wallet_from_pubkey."','".$wallet_from."','".$transaction->to."','".$transaction->amount."','".$transaction->signature."','".$transaction->tx_fee."','".$transaction->timestamp."');";
+                $this->db->query($sql_update_transactions);
+            }
+
+            //SQL Insert Block
+            $sql_insert_block = "INSERT INTO blocks_pending_by_peers (status,block_previous,block_hash,root_merkle,nonce,timestamp_start_miner,timestamp_end_miner,difficulty,version,info)
+            VALUES ('".$status."','".$minedBlock->previous."','".$minedBlock->hash."','".$minedBlock->merkle."','".$minedBlock->nonce."','".$minedBlock->timestamp."','".$minedBlock->timestamp_end."','".$minedBlock->difficulty."','".VERSION."','".$this->db->real_escape_string(@serialize($minedBlock->info))."');";
+
+            if ($this->db->query($sql_insert_block)) {
+                return true;
+            }
         }
         return false;
     }
@@ -544,24 +684,24 @@ class DB {
      * @param $previous_hash
      * @return bool|mixed
      */
-    public function GetPeersMinedBlockByPrevious($previous_hash) {
-        $info_mined_blocks_by_peer = $this->db->query("SELECT previous_hash, block FROM mined_blocks_by_peers WHERE previous_hash = '".$previous_hash."';")->fetch_assoc();
-        if (!empty($info_mined_blocks_by_peer)) {
-            return $info_mined_blocks_by_peer;
-        }
-        return false;
-    }
+    public function GetBlockPendingByPeer($previous_hash) {
+        $sql = "SELECT * FROM blocks_pending_by_peers WHERE block_previous = '".$previous_hash."'";
+        $info_block = $this->db->query($sql)->fetch_assoc();
+        if (!empty($info_block)) {
 
-    /**
-     * Remove a block mined by a peer given a previous_hash
-     *
-     * @param $previous_hash
-     * @return bool
-     */
-    public function RemovePeerMinedBlockByPrevious($previous_hash) {
-        if ($this->db->query("DELETE FROM mined_blocks_by_peers WHERE previous_hash = '".$previous_hash."';"))
-            return true;
-        return false;
+            $transactions_chaindata = $this->db->query("SELECT * FROM transactions_pending_by_peers WHERE block_hash = '".$info_block['block_hash']."' ORDER BY tx_fee ASC, timestamp DESC;");
+            $transactions = array();
+            if (!empty($transactions_chaindata)) {
+                while ($transactionInfo = $transactions_chaindata->fetch_array(SQLITE3_ASSOC)) {
+                    $transactions[] = $transactionInfo;
+                }
+            }
+
+            $info_block["transactions"] = $transactions;
+
+            return $info_block;
+        }
+        return null;
     }
 
     /**
@@ -742,13 +882,6 @@ class DB {
           `ip` varchar(120) NOT NULL,
           `port` varchar(8) NOT NULL,
           PRIMARY KEY (`ip`,`port`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-        ");
-        $this->db->query("
-        CREATE TABLE IF NOT EXISTS `mined_blocks_by_peers` (
-          `previous_hash` varchar(64) NOT NULL,
-          `block` blob NOT NULL,
-          PRIMARY KEY (`previous_hash`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
         ");
     }

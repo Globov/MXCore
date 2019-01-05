@@ -34,35 +34,64 @@ class PoW {
     /**
      * POW to find the hash that matches the current difficulty
      *
+     * @param $idMiner
      * @param $message
      * @param $difficulty
      * @param $startNonce
      * @param $incrementNonce
      * @return mixed
      */
-    public static function findNonce($message,$difficulty,$startNonce,$incrementNonce) {
+    public static function findNonce($idMiner,$message,$difficulty,$startNonce,$incrementNonce) {
         $max_difficulty = "0000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
         $nonce = $startNonce;
+
+        //Save current time
+        $lastLogTime = time();
 
         //Can't start subprocess with mainthread
         if (!file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MAIN_THREAD_CLOCK))
             die('MAINTHREAD NOT FOUND');
 
         $countIdle = 0;
+        $countIdleLog = 0;
 
         while(!self::isValidNonce($message,$nonce,$difficulty,$max_difficulty)) {
 
             $countIdle++;
+            $countIdleLog++;
 
-            //We increased the nonce to continue in the search to solve the problem
-            $nonce += $incrementNonce;
+            if ($countIdleLog == 1000) {
+                $countIdleLog = 0;
+
+                //We obtain the difference between first 100000 hashes time and this hash time
+                $minedTime = date_diff(
+                    date_create(date('Y-m-d H:i:s', $lastLogTime)),
+                    date_create(date('Y-m-d H:i:s', time()))
+                );
+                $timeCheckedHashesSeconds = intval($minedTime->format('%s'));
+                $timeCheckedHashesMinutes = intval($minedTime->format('%m'));
+                if ($timeCheckedHashesSeconds > 0)
+                    $timeCheckedHashesSeconds = $timeCheckedHashesSeconds + ($timeCheckedHashesMinutes * 60);
+
+                if ($timeCheckedHashesSeconds <= 0)
+                    $timeCheckedHashesSeconds = 1;
+
+                $hashRateMiner = 1000 / $timeCheckedHashesSeconds;
+
+                //Save current time
+                $lastLogTime = time();
+
+                Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$idMiner."_hashrate",$hashRateMiner);
+                //Subprocess::writeLog("Miners has checked ".$nonce." - Current hash rate: " . $hashRateMiner);
+
+            }
 
             //Check alive status every 1000 hashes
             if ($countIdle % 1000 == 0) {
                 $countIdle = 0;
 
                 //Update "pid" file every 1000 hashes
-                Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$startNonce,time());
+                Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MINERS_THREAD_CLOCK."_".$idMiner,time());
 
                 //Check if MainThread is alive
                 if (@file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MAIN_THREAD_CLOCK)) {
@@ -75,7 +104,6 @@ class PoW {
                     if ($diffTime >= MINER_TIMEOUT_CLOSE)
                         die('MAINTHREAD NOT FOUND');
                 }
-
                 //Quit-Files
                 if (@file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_STOP_MINING)) {
                     //Delete "pid" file
@@ -93,6 +121,10 @@ class PoW {
                     die('NO TX INFO');
                 }
             }
+
+            //We increased the nonce to continue in the search to solve the problem
+            $nonce += $incrementNonce;
+
         }
         return $nonce;
     }

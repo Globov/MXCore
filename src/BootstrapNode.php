@@ -29,6 +29,7 @@ class BootstrapNode {
      * We get the last block of the BootstrapNode
      *
      * @param DB $chaindata
+     * @param $isTestNet
      * @return int|mixed
      */
     public static function GetPeers(&$chaindata,$isTestNet=false) {
@@ -59,6 +60,7 @@ class BootstrapNode {
      * We get the last block of the BootstrapNode
      *
      * @param DB $chaindata
+     * @param $isTestNet
      * @return int|mixed
      */
     public static function GetPendingTransactions(&$chaindata,$isTestNet=false) {
@@ -89,6 +91,7 @@ class BootstrapNode {
      * We get the last block of the BootstrapNode
      *
      * @param DB $chaindata
+     * @param $isTestNet
      * @return int
      */
     public static function GetLastBlockNum(&$chaindata,$isTestNet=false) {
@@ -119,6 +122,7 @@ class BootstrapNode {
      * We obtain the GENESIS block from the BootstrapNode
      *
      * @param DB $chaindata
+     * @param $isTestNet
      * @return mixed
      */
     public static function GetGenesisBlock(&$chaindata,$isTestNet=false) {

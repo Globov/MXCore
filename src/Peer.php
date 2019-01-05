@@ -25,6 +25,8 @@
 class Peer {
 
     /**
+     * Sync blocks received by peer
+     *
      * @param Gossip $gossip
      * @param $nextBlocksToSyncFromPeer
      * @param $currentBlocks
@@ -87,11 +89,11 @@ class Peer {
 
                         $blocksSynced++;
                     } else {
-                        Display::_error("BLOCK: " . $block->hash . " Reward transaction not valid");
+                        Display::_error("Can't import block: " . $block->hash . " Reward transaction not valid");
                         break;
                     }
                 } else {
-                    Display::_error("BLOCK: " . $block->hash . " NO VALID");
+                    Display::_error("Can't import block: " . $block->hash . " - Block not valid");
                     break;
                 }
             }
@@ -122,31 +124,60 @@ class Peer {
 
     /**
      *
-     * We get the next 100 blocks given a current height
+     * We get the last block from peer
      *
-     * @param DB $chaindata
-     * @param int $lastBlockOnLocalBlockChain
-     * @param bool $isTestNet
-     * @return mixed
+     * @param $ipAndPort
+     * @param $isTestNet
+     * @return int
      */
-    public static function SyncNextBlocksFrom(&$chaindata, $lastBlockOnLocalBlockChain,$isTestNet=false) {
+    public static function GetLastBlockNum($ipAndPort) {
 
-        if ($isTestNet) {
-            $ip = NODE_BOOTSTRAP_TESTNET;
-            $port = NODE_BOOSTRAP_PORT_TESTNET;
+        //Get IP and Port
+        $tmp = explode(':',$ipAndPort);
+        $ip = $tmp[0];
+        $port = $tmp[1];
+
+        $infoToSend = array(
+            'action' => 'LASTBLOCKNUM'
+        );
+
+        if ($ip == NODE_BOOTSTRAP_TESTNET || $ip == NODE_BOOTSTRAP) {
+            $infoPOST = Tools::postContent('https://'.$ip.'/gossip.php', $infoToSend);
         } else {
-            $ip = NODE_BOOTSTRAP;
-            $port = NODE_BOOSTRAP_PORT;
+            $infoPOST = Tools::postContent('http://'.$ip.':'.$port.'/gossip.php', $infoToSend);
         }
 
-        $bootstrapNode = $chaindata->GetBootstrapNode();
+        if ($infoPOST->status == 1)
+            return $infoPOST->result;
+        else
+            return 0;
+    }
+
+    /**
+     *
+     * We get the next 100 blocks from peer given a current height
+     *
+     * @param string $ipAndPort
+     * @param string $lastBlockOnLocal
+     * @return mixed
+     */
+    public static function SyncNextBlocksFrom($ipAndPort,$lastBlockOnLocal) {
+
+        //Get IP and Port
+        $tmp = explode(':',$ipAndPort);
+        $ip = $tmp[0];
+        $port = $tmp[1];
 
         //Nos comunicamos con el BOOTSTRAP_NODE
         $infoToSend = array(
             'action' => 'SYNCBLOCKS',
-            'from' => $lastBlockOnLocalBlockChain
+            'from' => $lastBlockOnLocal
         );
-        $infoPOST = Tools::postContent('https://' . $ip . '/gossip.php', $infoToSend);
+        if ($ip == NODE_BOOTSTRAP_TESTNET || $ip == NODE_BOOTSTRAP) {
+            $infoPOST = Tools::postContent('https://'.$ip.'/gossip.php', $infoToSend);
+        } else {
+            $infoPOST = Tools::postContent('http://'.$ip.':'.$port.'/gossip.php', $infoToSend);
+        }
         if ($infoPOST->status == 1)
             return $infoPOST->result;
         else

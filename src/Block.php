@@ -145,9 +145,9 @@ class Block {
      * If it is valid, it will stop mining
      * If it is not valid, it will continue to undermine
      *
-     * @param Blockchain $blockchain
+     * @param int $idMiner
      */
-    public function mine() {
+    public function mine($idMiner) {
 
         $date = new DateTime();
         $this->timestamp = $date->getTimestamp();
@@ -165,7 +165,7 @@ class Block {
         $data .= $this->previous;
 
         //We started mining
-        $this->nonce = PoW::findNonce($data,$this->difficulty,$this->startNonce,$this->incrementNonce);
+        $this->nonce = PoW::findNonce($idMiner,$data,$this->difficulty,$this->startNonce,$this->incrementNonce);
         if ($this->nonce !== false) {
             //Make hash and merkle for this block
             $this->hash = PoW::hash($data.$this->nonce);

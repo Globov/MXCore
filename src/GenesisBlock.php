@@ -64,6 +64,7 @@ class GenesisBlock {
                         exit();
                     }
 
+                    //Save genesis block into blockchain
                     $chaindata->addBlock(0,$genesisBlock);
 
                     //Display message

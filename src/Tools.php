@@ -157,6 +157,25 @@ class Tools {
     }
 
     /**
+     * Write file with content
+     * If file exist,delete
+     *
+     * @param $file
+     * @param $content
+     * @param $checkIfExistAndDelete
+     */
+    public static function writeLog($file,$content='',$checkIfExistAndDelete = false) {
+
+        if ($checkIfExistAndDelete && @file_exists($file))
+            @unlink($file);
+
+        $fp = @fopen($file, 'a');
+        @fwrite($fp, $content);
+        @fclose($fp);
+        @chmod($file, 0755);
+    }
+
+    /**
      * Clear TMP folder
      */
     public static function clearTmpFolder() {
@@ -200,7 +219,7 @@ class Tools {
         //Write block cache for propagation subprocess
         Tools::writeFile(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_PROPAGATE_BLOCK,@serialize($blockMined));
 
-        if (DISPLAY_DEBUG) {
+        if (DISPLAY_DEBUG && DISPLAY_DEBUG_LEVEL >= 3) {
             $mini_hash = substr($blockMined->hash,-12);
             $mini_hash_previous = substr($blockMined->previous,-12);
 
@@ -214,7 +233,8 @@ class Tools {
             //Params for subprocess
             $params = array(
                 $peer['ip'],
-                $peer['port']
+                $peer['port'],
+                1
             );
 
             //Run subprocess propagation

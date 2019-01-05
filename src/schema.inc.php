@@ -149,9 +149,51 @@ if ($dbversion == 1) {
     $dbversion++;
 }
 
+if ($dbversion == 2) {
+    $db->db->query("
+    CREATE TABLE `blocks_pending_by_peers` (
+      `height` int(200) unsigned NOT NULL AUTO_INCREMENT,
+      `status` varchar(10) NOT NULL,
+      `block_previous` varchar(64) NOT NULL,
+      `block_hash` varchar(64) NOT NULL,
+      `root_merkle` varchar(64) NOT NULL,
+      `nonce` bigint(200) NOT NULL,
+      `timestamp_start_miner` varchar(12) NOT NULL,
+      `timestamp_end_miner` varchar(12) NOT NULL,
+      `difficulty` varchar(255) NOT NULL,
+      `version` varchar(10) NOT NULL,
+      `info` text NOT NULL,
+      PRIMARY KEY (`height`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+    ");
+
+    $db->db->query("
+    CREATE TABLE `transactions_pending_by_peers` (
+      `txn_hash` varchar(64) NOT NULL,
+      `block_hash` varchar(64) NOT NULL,
+      `wallet_from_key` longtext,
+      `wallet_from` varchar(64) DEFAULT NULL,
+      `wallet_to` varchar(64) NOT NULL,
+      `amount` varchar(64) NOT NULL,
+      `signature` longtext NOT NULL,
+      `tx_fee` varchar(10) DEFAULT NULL,
+      `timestamp` varchar(12) NOT NULL,
+      PRIMARY KEY (`txn_hash`),
+      KEY `wallet_from_to` (`wallet_from`,`wallet_to`) USING HASH
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+    ");
+
+    $db->db->query("DROP TABLE mined_blocks_by_peers");
+
+    Display::_printer("Updating DB Schema #".$dbversion);
+
+    //Increment version to next stage
+    $dbversion++;
+}
+
 // update dbversion
 if ($dbversion != $_CONFIG['dbversion']) {
-    $db->db->query("UPDATE config SET val='".$dbversion."' WHERE cfg='dbversion'");
+    $db->SetConfig('dbversion',$dbversion);
 }
 
 Display::_printer("DB Schema updated");
