@@ -49,34 +49,72 @@ date_default_timezone_set("UTC");
 if (!isset($argv[1]))
     die("ID not defined");
 
-if (!isset($argv[2]))
-    die("Peer IP not defined");
+if ($argv[1] == -1) {
 
-if (!isset($argv[3]))
-    die("Peer PORT not defined");
+    $chaindata = new DB();
 
-$id = $argv[1];
-$peerIP = $argv[2];
-$peerPORT = $argv[3];
+    //Run subprocess peerAlive per peer
+    $peers = $chaindata->GetAllPeers();
 
-$chaindata = new DB();
+    $lastBlock = $chaindata->GetLastBlock();
 
-$infoToSend = array(
-    'action' => 'PING'
-);
+    if (count($peers) > 0) {
+        $id = 0;
+        foreach ($peers as $peer) {
+            //Params for subprocess
+            $params = array(
+                $peer['ip'],
+                $peer['port'],
+                $lastBlock['block_hash'],
+                $lastBlock['height']
+            );
 
-$response = null;
-if ($peerIP == NODE_BOOTSTRAP) {
-    $response = Tools::postContent('https://'.NODE_BOOTSTRAP.'/gossip.php', $infoToSend,5);
-}
-else if ($peerIP == NODE_BOOTSTRAP_TESTNET) {
-    $response = Tools::postContent('https://'.NODE_BOOTSTRAP_TESTNET.'/gossip.php', $infoToSend,5);
-}
-else {
-    $response = Tools::postContent('http://' . $peerIP . ':' . $peerPORT . '/gossip.php', $infoToSend,5);
-}
+            //Run subprocess propagation
+            Subprocess::newProcess(Tools::GetBaseDir()."subprocess".DIRECTORY_SEPARATOR,'peerAlive',$params,$id);
+            $id++;
+        }
+    }
+} else {
+    if (!isset($argv[2]))
+        die("Peer IP not defined");
 
-if ($response == null) {
-    $chaindata->removePeer($peerIP,$peerPORT);
+    if (!isset($argv[3]))
+        die("Peer PORT not defined");
+
+    $chaindata = new DB();
+
+    $id = $argv[1];
+    $peerIP = $argv[2];
+    $peerPORT = $argv[3];
+    $lastBlockHash = $argv[4];
+    $lastBlockHeihgt = $argv[5];
+
+    $infoToSend = array(
+        'action' => 'LASTBLOCKNUM'
+    );
+
+    $response = null;
+    if ($peerIP == NODE_BOOTSTRAP) {
+        $response = Tools::postContent('https://'.NODE_BOOTSTRAP.'/gossip.php', $infoToSend,10);
+    }
+    else if ($peerIP == NODE_BOOTSTRAP_TESTNET) {
+        $response = Tools::postContent('https://'.NODE_BOOTSTRAP_TESTNET.'/gossip.php', $infoToSend,10);
+    }
+    else {
+        $response = Tools::postContent('http://' . $peerIP . ':' . $peerPORT . '/gossip.php', $infoToSend,10);
+    }
+
+    //Check if response as ok
+    if ($response->status) {
+        //Check if peer have same height block
+        if ($response->result > ($lastBlockHeihgt+1)) {
+            //Write sync_with_peer
+            Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR."sync_with_peer",$peerIP.":".$peerPORT);
+        }
+    }
+
+    if ($response == null) {
+        $chaindata->removePeer($peerIP,$peerPORT);
+    }
 }
 die();

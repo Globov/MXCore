@@ -511,7 +511,7 @@ class DB {
      * @param $blockHash
      */
     public function removeBlockPendingByPeers($blockHash) {
-        $this->db->query("DELETE FROM blocks_pending_by_peers WHERE block_hash='".$blockHash."';");
+        $this->db->query("DELETE FROM blocks_pending_by_peers WHERE block_previous='".$blockHash."';");
     }
 
     /**
@@ -618,7 +618,7 @@ class DB {
                 }
 
                 //Remove block from tmp table
-                $this->removeBlockPendingByPeers($blockInfo['block_hash']);
+                $this->removeBlockPendingByPeers($blockInfo['block_previous']);
 
                 return true;
             }

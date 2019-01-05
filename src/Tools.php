@@ -157,6 +157,25 @@ class Tools {
     }
 
     /**
+     * Write file with content
+     * If file exist,delete
+     *
+     * @param $file
+     * @param $content
+     * @param $checkIfExistAndDelete
+     */
+    public static function writeLog($file,$content='',$checkIfExistAndDelete = false) {
+
+        if ($checkIfExistAndDelete && @file_exists($file))
+            @unlink($file);
+
+        $fp = @fopen($file, 'a');
+        @fwrite($fp, $content);
+        @fclose($fp);
+        @chmod($file, 0755);
+    }
+
+    /**
      * Clear TMP folder
      */
     public static function clearTmpFolder() {

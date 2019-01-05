@@ -366,18 +366,9 @@ class Gossip {
             if (DISPLAY_DEBUG && DISPLAY_DEBUG_LEVEL >= 1)
                 Display::_debug("Checking status of peers                 %G%count%W%=".count($peers));
 
-            $id = 0;
-            foreach ($peers as $peer) {
-                //Params for subprocess
-                $params = array(
-                    $peer['ip'],
-                    $peer['port']
-                );
 
-                //Run subprocess propagation
-                Subprocess::newProcess(Tools::GetBaseDir()."subprocess".DIRECTORY_SEPARATOR,'peerAlive',$params,$id);
-                $id++;
-            }
+            //Run subprocess propagation
+            Subprocess::newProcess(Tools::GetBaseDir()."subprocess".DIRECTORY_SEPARATOR,'peerAlive',"",-1);
         }
     }
 
@@ -526,7 +517,7 @@ class Gossip {
 
 
     /**
-     * Show subprocess log
+     * Show subprocess miners log
      */
     public function ShowInfoSubprocessMiners() {
 
@@ -568,6 +559,21 @@ class Gossip {
             Display::_printer("Miners Threads Status                    %G%count%W%=".$multiplyNonce."            %G%hashRate%W%=" . $hashRateMiner);
     }
 
+    /**
+     * Show subprocess propagation log
+     */
+    public function ShowLogSubprocess() {
+        $logFile = Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR."log";
+        if (@file_exists($logFile)) {
+            $currentLog = @file($logFile);
+            if (!empty($currentLog)) {
+                @unlink($logFile);
+                foreach ($currentLog as $line) {
+                    Display::_printer(trim($line));
+                }
+            }
+        }
+    }
 
     /**
      * General loop of the node
@@ -595,6 +601,9 @@ class Gossip {
 
             //Exec delayed loops
             $this->loop_x5();
+
+            if (DISPLAY_DEBUG && DISPLAY_DEBUG_LEVEL >= 3)
+                $this->ShowLogSubprocess();
 
             //If we are not synchronizing
             if (!$this->syncing) {
@@ -693,31 +702,48 @@ class Gossip {
             //If we are synchronizing and we are connected with the bootstrap
             else if ($this->syncing) {
 
-                //We get the last block from the BootstrapNode
-                $lastBlock_BootstrapNode = BootstrapNode::GetLastBlockNum($this->chaindata,$this->isTestNet);
-                $lastBlock_LocalNode = $this->chaindata->GetNextBlockNum();
+                if ($this->isTestNet)
+                    $ipAndPort = NODE_BOOTSTRAP_TESTNET.':'.NODE_BOOSTRAP_PORT_TESTNET;
+                else
+                    $ipAndPort = NODE_BOOTSTRAP.':'.NODE_BOOSTRAP_PORT;
 
-                if ($lastBlock_LocalNode < $lastBlock_BootstrapNode) {
-                    $nextBlocksToSyncFromPeer = BootstrapNode::SyncNextBlocksFrom($lastBlock_LocalNode,$this->isTestNet);
-                    Peer::SyncBlocks($this,$nextBlocksToSyncFromPeer,$lastBlock_LocalNode,$lastBlock_BootstrapNode);
-                } else {
-                    $this->syncing = false;
+                if (@file_exists(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR."sync_with_peer")) {
+                    $ipAndPort = file_get_contents(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR."sync_with_peer");
+                }
 
-                    //We synchronize the information of the blockchain
-                    $this->difficulty = $this->chaindata->GetLastBlock()['difficulty'];
+                //Check if have ip and port
+                if (strlen($ipAndPort) > 0) {
 
-                    //We check the difficulty
-                    if (!$this->isTestNet)
-                        Blockchain::checkDifficulty($this->chaindata,$this->difficulty);
+                    //We get the last block from peer
+                    $lastBlock_PeerNode = Peer::GetLastBlockNum($ipAndPort);
+                    $lastBlock_LocalNode = $this->chaindata->GetNextBlockNum();
 
-                    //We clean the table of blocks mined by the peers
-                    $this->chaindata->truncate("mined_blocks_by_peers");
-                    $this->chaindata->truncate("transactions_pending");
+                    if ($lastBlock_LocalNode < $lastBlock_PeerNode) {
+                        $nextBlocksToSyncFromPeer = Peer::SyncNextBlocksFrom($ipAndPort,$lastBlock_LocalNode);
+                        Peer::SyncBlocks($this,$nextBlocksToSyncFromPeer,$lastBlock_LocalNode,$lastBlock_PeerNode);
+                    } else {
+                        $this->syncing = false;
+
+                        //Delete sync file
+                        @unlink(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR."sync_with_peer");
+
+                        //We synchronize the information of the blockchain
+                        $this->difficulty = $this->chaindata->GetLastBlock()['difficulty'];
+
+                        //We check the difficulty
+                        if (!$this->isTestNet)
+                            Blockchain::checkDifficulty($this->chaindata,$this->difficulty);
+
+                        //We clean the table of blocks mined by the peers
+                        $this->chaindata->truncate("mined_blocks_by_peers");
+                        $this->chaindata->truncate("transactions_pending");
+                    }
                 }
 
                 continue;
             }
 
+            //If isnt bootstrap and connected to bootstrap
             if (!$this->bootstrap_node && $this->connected_to_bootstrap) {
                 //We get the last block from the BootstrapNode
                 $lastBlock_BootstrapNode = BootstrapNode::GetLastBlockNum($this->chaindata,$this->isTestNet);
@@ -737,6 +763,16 @@ class Gossip {
 
                     //We declare that we are synchronizing
                     $this->syncing = true;
+                }
+            }
+
+            //If is bootstrap
+            if ($this->bootstrap_node) {
+                if (@file_exists(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR."sync_with_peer")) {
+                    //We declare that we are synchronizing
+                    $this->syncing = true;
+
+                    Display::_printer("Getting blocks from peer: " . @file_get_contents(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR."sync_with_peer"));
                 }
             }
 

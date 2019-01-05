@@ -66,8 +66,12 @@ $numRetrys = $argv[4];
 //Load Block class from cache file
 $blockMined = Tools::objectToObject(@unserialize(@file_get_contents(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_PROPAGATE_BLOCK)),"Block");
 if ($blockMined != null && is_object($blockMined)) {
+
+    $chaindata = new DB();
+
     $infoToSend = array(
         'action' => 'MINEDBLOCK',
+        'height' => $chaindata->GetNextBlockNum(),
         'hash_previous' => $blockMined->previous,
         'block' => @serialize($blockMined)
     );
@@ -93,13 +97,17 @@ if ($blockMined != null && is_object($blockMined)) {
 
     //Retry propagation block
     if ($retryConnection && $numRetrys <= 5) {
+
+        //Write log
+        Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR."log","Propagation #".$peerIP.":".$peerPORT." retry - error: " . print_r($response,true));
+
         $params = array(
             $peerIP,
             $peerPORT,
             ($numRetrys+1)
         );
 
-        //Run subprocess propagation
+        //Retry propagation
         Subprocess::newProcess(Tools::GetBaseDir()."subprocess".DIRECTORY_SEPARATOR,'propagate',$params,$id);
     }
 }

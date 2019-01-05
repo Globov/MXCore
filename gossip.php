@@ -98,11 +98,13 @@ if (isset($_REQUEST)) {
                     else {
                         //TODO Check if peer have more block than me, > = sync || < = send order to peer to synchronize with me
                         $return['status'] = false;
-                        $return['error'] = "0x00000003";
+                        $return['error'] = "0x10000001";
+                        $return['message'] = "LastBlock: " . $lastBlock['block_hash'] . " | Received: ".$_REQUEST['hash_previous'];
                     }
                 } else {
                     $return['status'] = false;
-                    $return['error'] = "0x10000000";
+                    $return['error'] = "0x10000002";
+                    $return['message'] = "Need hashPrevious & blockInfo";
                 }
             break;
             case 'HELLOBOOTSTRAP':
