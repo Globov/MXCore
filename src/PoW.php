@@ -54,13 +54,14 @@ class PoW {
 
         $countIdle = 0;
         $countIdleLog = 0;
+        $limitCount = 1000;
 
         while(!self::isValidNonce($message,$nonce,$difficulty,$max_difficulty)) {
 
             $countIdle++;
             $countIdleLog++;
 
-            if ($countIdleLog == 1000) {
+            if ($countIdleLog == $limitCount) {
                 $countIdleLog = 0;
 
                 //We obtain the difference between first 100000 hashes time and this hash time
@@ -69,14 +70,17 @@ class PoW {
                     date_create(date('Y-m-d H:i:s', time()))
                 );
                 $timeCheckedHashesSeconds = intval($minedTime->format('%s'));
-                $timeCheckedHashesMinutes = intval($minedTime->format('%m'));
+                $timeCheckedHashesMinutes = intval($minedTime->format('%i'));
                 if ($timeCheckedHashesSeconds > 0)
                     $timeCheckedHashesSeconds = $timeCheckedHashesSeconds + ($timeCheckedHashesMinutes * 60);
 
-                if ($timeCheckedHashesSeconds <= 0)
+                $currentLimitCount = $limitCount;
+                if ($timeCheckedHashesSeconds <= 0) {
                     $timeCheckedHashesSeconds = 1;
+                    $limitCount *= 10;
+                }
 
-                $hashRateMiner = 1000 / $timeCheckedHashesSeconds;
+                $hashRateMiner = $currentLimitCount / $timeCheckedHashesSeconds;
 
                 //Save current time
                 $lastLogTime = time();

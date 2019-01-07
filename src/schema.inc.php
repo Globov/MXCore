@@ -191,6 +191,59 @@ if ($dbversion == 2) {
     $dbversion++;
 }
 
+if ($dbversion == 3) {
+
+    //This hotfix only needed on mainnet
+    if ($_CONFIG['network'] == 'mainnet') {
+
+        //Get current height
+        $currentHeight = $db->GetNextBlockNum();
+
+        //If height is greater than bug blockchain height
+        if ($currentHeight > 10559) {
+
+            //Get difficulty of last block
+            $lastDifficulty = $db->db->query("SELECT difficulty FROM blocks ORDER BY height DESC LIMIT 1;")->fetch_assoc();
+            if (!empty($lastDifficulty)) {
+
+                //if difficulty is 1
+                if ($lastDifficulty['difficulty'] == 1) {
+
+                    Display::_printer("Executing HOT FIX #2");
+
+                    //Remove bugged transactions
+                    $db->db->query("
+                    DELETE FROM transactions WHERE block_hash IN (
+                      SELECT block_hash FROM blocks WHERE height > 10559
+                    );
+                    ");
+
+                    //Remove bugged blocks
+                    $db->db->query("DELETE FROM blocks WHERE height > 10559");
+
+                    Display::_printer("Finished HOT FIX #2");
+                }
+            }
+        }
+    }
+
+    //Increment version to next stage
+    $dbversion++;
+}
+
+if ($dbversion == 4) {
+    $db->db->query("
+    ALTER TABLE `peers`
+    ADD COLUMN `blacklist`  varchar(12) NULL AFTER `port`;
+    ");
+
+    Display::_printer("Updating DB Schema #".$dbversion);
+
+    //Increment version to next stage
+    $dbversion++;
+}
+
+
 // update dbversion
 if ($dbversion != $_CONFIG['dbversion']) {
     $db->SetConfig('dbversion',$dbversion);

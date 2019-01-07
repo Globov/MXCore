@@ -108,8 +108,14 @@ if ($argv[1] == -1) {
     if ($response->status) {
         //Check if peer have same height block
         if ($response->result > ($lastBlockHeihgt+1)) {
-            //Write sync_with_peer
-            Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR."sync_with_peer",$peerIP.":".$peerPORT);
+
+            //Check if have same GENESIS block from peer
+            $peerGenesisBlock = Peer::GetGenesisBlock($peerIP.':'.$peerPORT);
+            $localGenesisBlock = $chaindata->GetGenesisBlock();
+            if ($localGenesisBlock['block_hash'] == $peerGenesisBlock->block_hash) {
+                //Write sync_with_peer
+                Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR."sync_with_peer",$peerIP.":".$peerPORT);
+            }
         }
     }
 

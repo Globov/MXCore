@@ -447,8 +447,10 @@ class Gossip {
     public function GetPendingTransactions() {
         if (!$this->bootstrap_node) {
             $transactionsByPeer = BootstrapNode::GetPendingTransactions($this->chaindata,$this->isTestNet);
-            foreach ($transactionsByPeer as $transactionByPeer) {
-                $this->chaindata->addPendingTransactionByBootstrap($transactionByPeer);
+            if ($transactionsByPeer != null && is_array($transactionsByPeer)) {
+                foreach ($transactionsByPeer as $transactionByPeer) {
+                    $this->chaindata->addPendingTransactionByBootstrap($transactionByPeer,$this->isTestNet);
+                }
             }
         }
     }
@@ -720,7 +722,13 @@ class Gossip {
 
                     if ($lastBlock_LocalNode < $lastBlock_PeerNode) {
                         $nextBlocksToSyncFromPeer = Peer::SyncNextBlocksFrom($ipAndPort,$lastBlock_LocalNode);
-                        Peer::SyncBlocks($this,$nextBlocksToSyncFromPeer,$lastBlock_LocalNode,$lastBlock_PeerNode);
+                        $resultSync = Peer::SyncBlocks($this,$nextBlocksToSyncFromPeer,$lastBlock_LocalNode,$lastBlock_PeerNode,$ipAndPort);
+                        
+                        //If dont have result of sync, stop sync with this peer
+                        if ($resultSync == null) {
+                            //Delete sync file
+                            @unlink(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR."sync_with_peer");
+                        }
                     } else {
                         $this->syncing = false;
 

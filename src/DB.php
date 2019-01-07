@@ -111,8 +111,7 @@ class DB {
      * @return bool|mixed
      */
     public function GetBootstrapNode() {
-        //Seleccionamos el primer peer (Que sera el bootstrap node)
-        $info_mined_blocks_by_peer = $this->db->query("SELECT * FROM peers LIMIT 1;")->fetch_assoc();
+        $info_mined_blocks_by_peer = $this->db->query("SELECT * FROM peers ORDER BY id ASC LIMIT 1;")->fetch_assoc();
         if (!empty($info_mined_blocks_by_peer)) {
             return $info_mined_blocks_by_peer;
         }
@@ -151,6 +150,32 @@ class DB {
     }
 
     /**
+     * Save config on database
+     *
+     * @param $ipAndPort
+     */
+    public function addPeerToBlackList($ipAndPort) {
+
+        //Get IP and Port
+        $tmp = explode(':',$ipAndPort);
+        $ip = $tmp[0];
+        $port = $tmp[1];
+
+        if (strlen($ip) > 0 && strlen($port) > 0) {
+            $currentConfig = $this->db->query("SELECT id FROM peers WHERE ip = '".$ip."' AND port = '".$port."';")->fetch_assoc();
+
+            //Ban peer 10min
+            $blackListTime = time() + 10 * 60;
+            if (empty($currentConfig)) {
+                $this->db->query("INSERT INTO peers (ip,port,blacklist) VALUES ('".$ip."', '".$port."', '".$blackListTime."');");
+            }
+            else {
+                $this->db->query("UPDATE peers SET blacklist='".$blackListTime."' WHERE ip = '".$ip."' AND port = '".$port."';");
+            }
+        }
+    }
+
+    /**
      * Remove a peer from the chaindata
      *
      * @param $ip
@@ -174,7 +199,7 @@ class DB {
      */
     public function GetAllPeers() {
         $peers = array();
-        $peers_chaindata = $this->db->query("SELECT * FROM peers ORDER BY id");
+        $peers_chaindata = $this->db->query("SELECT * FROM peers WHERE blacklist IS NULL OR blacklist < ".time()." ORDER BY id");
         if (!empty($peers_chaindata)) {
             while ($peer = $peers_chaindata->fetch_array(MYSQLI_ASSOC)) {
                 $ip = str_replace("\r","",$peer['ip']);
@@ -200,7 +225,7 @@ class DB {
      */
     public function GetPeers() {
         $peers = array();
-        $peers_chaindata = $this->db->query("SELECT * FROM peers LIMIT 25");
+        $peers_chaindata = $this->db->query("SELECT * FROM peers WHERE blacklist IS NULL OR blacklist < ".time()." LIMIT 25");
         if (!empty($peers_chaindata)) {
             while ($peer = $peers_chaindata->fetch_array(MYSQLI_ASSOC)) {
                 $infoPeer = array(
@@ -212,14 +237,6 @@ class DB {
         }
         return $peers;
     }
-
-
-
-
-
-
-
-
 
     /**
      * Returns a block given a hash
@@ -294,7 +311,7 @@ class DB {
     /**
      * Returns the information of a wallet
      *
-     * @param $hash
+     * @param $wallet
      * @return array
      */
     public function GetWalletInfo($wallet) {
@@ -343,7 +360,8 @@ class DB {
     /**
      * Returns all the transactions of a wallet
      *
-     * @param $hash
+     * @param $wallet
+     * @param $limit
      * @return array
      */
     public function GetTransactionsByWallet($wallet,$limit=50) {
@@ -361,7 +379,7 @@ class DB {
     /**
      * Returns a block given a height
      *
-     * @param $hash
+     * @param $height
      * @return mixed
      */
     public function GetBlockByHeight($height) {
@@ -387,18 +405,23 @@ class DB {
     /**
      * Add a pending transaction to the chaindata
      *
-     * @param $ip
-     * @param $port
+     * @param $transaction
      * @return bool
      */
     public function addPendingTransaction($transaction) {
         $into_tx_pending = $this->db->query("SELECT txn_hash FROM transactions_pending WHERE txn_hash = '".$transaction['txn_hash']."';")->fetch_assoc();
         if (empty($into_tx_pending)) {
 
-            $sql_update_transactions = "INSERT INTO transactions_pending (block_hash, txn_hash, wallet_from_key, wallet_from, wallet_to, amount, signature, tx_fee, timestamp) 
-                    VALUES ('','".$transaction['txn_hash']."','".$transaction['wallet_from_key']."','".$transaction['wallet_from']."','".$transaction['wallet_to']."','".$transaction['amount']."','".$transaction['signature']."','".$transaction['tx_fee']."','".$transaction['timestamp']."');";
-            $this->db->query($sql_update_transactions);
-            return true;
+            //Get current balance of WalletFrom and check if have money to send transaction
+            //This prevent hack transactions
+            $walletFromBalance = Wallet::GetBalanceWithChaindata($this,$transaction->wallet_from);
+
+            if ($walletFromBalance >= $transaction['amount']) {
+                $sql_update_transactions = "INSERT INTO transactions_pending (block_hash, txn_hash, wallet_from_key, wallet_from, wallet_to, amount, signature, tx_fee, timestamp) 
+                    VALUES ('','" . $transaction['txn_hash'] . "','" . $transaction['wallet_from_key'] . "','" . $transaction['wallet_from'] . "','" . $transaction['wallet_to'] . "','" . $transaction['amount'] . "','" . $transaction['signature'] . "','" . $transaction['tx_fee'] . "','" . $transaction['timestamp'] . "');";
+                $this->db->query($sql_update_transactions);
+                return true;
+            }
         }
         return false;
     }
@@ -406,20 +429,28 @@ class DB {
     /**
      * Add a pending transaction to the chaindata
      *
-     * @param $ip
-     * @param $port
+     * @param $transaction
      * @return bool
      */
     public function addPendingTransactionByBootstrap($transaction) {
         if (isset($transaction->txn_hash) && strlen($transaction->txn_hash) > 0) {
             $into_tx_pending = $this->db->query("SELECT txn_hash FROM transactions_pending WHERE txn_hash = '".$transaction->txn_hash."';")->fetch_assoc();
             if (empty($into_tx_pending)) {
-                $sql_update_transactions = "INSERT INTO transactions_pending (block_hash, txn_hash, wallet_from_key, wallet_from, wallet_to, amount, signature, tx_fee, timestamp) 
+
+                //Get current balance of WalletFrom and check if have money to send transaction
+                //This prevent hack transactions
+                $walletFromBalance = Wallet::GetBalanceWithChaindata($this,$transaction->wallet_from);
+
+                if ($walletFromBalance >= $transaction->amount) {
+                    $sql_update_transactions = "INSERT INTO transactions_pending (block_hash, txn_hash, wallet_from_key, wallet_from, wallet_to, amount, signature, tx_fee, timestamp) 
                     VALUES ('','".$transaction->txn_hash."','".$transaction->wallet_from_key."','".$transaction->wallet_from."','".$transaction->wallet_to."','".$transaction->amount."','".$transaction->signature."','".$transaction->tx_fee."','".$transaction->timestamp."');";
-                $this->db->query($sql_update_transactions);
-                return true;
+                    $this->db->query($sql_update_transactions);
+
+                    return true;
+                }
             }
         }
+        return false;
     }
 
     /**

@@ -276,25 +276,24 @@ class Tools {
     /**
      * Send a CURL POST message to a destination
      *
-     * @param $url
-     * @param $data
-     * @param $timeout
-     * @param null $username
-     * @param null $password
+     * @param string $url
+     * @param array $data
+     * @param int $timeout
      * @return mixed|string
      */
-    public static function postContentV1($url, $data, $timeout = 60, $username = null, $password = null)
+    public static function postContentV1($url, $data, $timeout = 60)
     {
         try {
 
             $postdata = http_build_query($data);
 
             $ch = curl_init();
+
             curl_setopt($ch, CURLOPT_URL,$url);
             curl_setopt($ch, CURLOPT_POST, 1);
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 0);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 300);
             curl_setopt($ch, CURLOPT_POSTFIELDS, $postdata);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 0);
+            curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
             $server_output = json_decode(curl_exec($ch));

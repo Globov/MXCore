@@ -31,8 +31,9 @@ class Peer {
      * @param $nextBlocksToSyncFromPeer
      * @param $currentBlocks
      * @param $totalBlocks
+     * @param $ipAndPort
      */
-    public static function SyncBlocks(&$gossip,$nextBlocksToSyncFromPeer,$currentBlocks,$totalBlocks) {
+    public static function SyncBlocks(&$gossip,$nextBlocksToSyncFromPeer,$currentBlocks,$totalBlocks,$ipAndPort) {
         $blocksSynced = 0;
         $blockSynced = null;
         $transactionsSynced = null;
@@ -76,25 +77,38 @@ class Peer {
                     $infoBlock
                 );
 
-                //If the block is valid and the previous one refers to the last block of the local blockchain
-                if ($block->isValid()) {
+                //Get last local block
+                $lastBlock = $gossip->chaindata->GetLastBlock();
 
-                    //Check if rewarded transaction is valid, prevent hack money
-                    if ($block->isValidReward($object->height,$gossip->isTestNet)) {
-                        //We add the block to the chaindata and blockchain
-                        $gossip->chaindata->addBlock($object->height,$block);
+                //Check if my last block is the previous block of the block to import
+                if ($lastBlock['block_hash'] == $object->block_previous) {
 
-                        //Save block pointer
-                        $blockSynced = $block;
+                    //If the block is valid
+                    if ($block->isValid()) {
 
-                        $blocksSynced++;
+                        //Check if rewarded transaction is valid, prevent hack money
+                        if ($block->isValidReward($object->height,$gossip->isTestNet)) {
+                            //We add the block to the chaindata and blockchain
+                            $gossip->chaindata->addBlock($object->height,$block);
+
+                            //Save block pointer
+                            $blockSynced = $block;
+
+                            $blocksSynced++;
+                        } else {
+                            Display::_error("Peer ".$ipAndPort." added to blacklist       %G%reason%W%=Reward transaction not valid");
+                            $gossip->chaindata->addPeerToBlackList($ipAndPort);
+                            return null;
+                        }
                     } else {
-                        Display::_error("Can't import block: " . $block->hash . " Reward transaction not valid");
-                        break;
+                        Display::_error("Peer ".$ipAndPort." added to blacklist       %G%reason%W%=Has a block that I can not validate");
+                        $gossip->chaindata->addPeerToBlackList($ipAndPort);
+                        return null;
                     }
                 } else {
-                    Display::_error("Can't import block: " . $block->hash . " - Block not valid");
-                    break;
+                    Display::_error("Peer ".$ipAndPort." added to blacklist       %G%reason%W%=Peer Previous block doesnt match with local last block");
+                    $gossip->chaindata->addPeerToBlackList($ipAndPort);
+                    return null;
                 }
             }
         }
@@ -120,6 +134,38 @@ class Peer {
         } else if ($blocksSynced > 0) {
             Display::_printer("%Y%Imported%W% new blocks headers              %G%count%W%=".$blocksSynced."             %G%current%W%=".$currentBlocks."   %G%total%W%=".$totalBlocks);
         }
+
+        return true;
+    }
+
+    /**
+     *
+     * We obtain the GENESIS block from Peer
+     *
+     * @param $ipAndPort
+     * @return mixed
+     */
+    public static function GetGenesisBlock($ipAndPort) {
+
+        //Get IP and Port
+        $tmp = explode(':',$ipAndPort);
+        $ip = $tmp[0];
+        $port = $tmp[1];
+
+        $infoToSend = array(
+            'action' => 'GETGENESIS'
+        );
+
+        if ($ip == NODE_BOOTSTRAP_TESTNET || $ip == NODE_BOOTSTRAP) {
+            $infoPOST = Tools::postContent('https://'.$ip.'/gossip.php', $infoToSend);
+        } else {
+            $infoPOST = Tools::postContent('http://'.$ip.':'.$port.'/gossip.php', $infoToSend);
+        }
+
+        if ($infoPOST->status == 1)
+            return $infoPOST->result;
+        else
+            return 0;
     }
 
     /**

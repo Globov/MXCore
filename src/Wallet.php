@@ -145,13 +145,202 @@ class Wallet {
     }
 
     /**
+     * Get Balance of wallet
+     *
+     * @param $address
+     * @param $isTestNet
+     * @return int|mixed
+     */
+    public static function API_GetBalance($address,$isTestNet=false) {
+
+        if ($address == "coinbase") {
+            $wallet_from_info = self::GetCoinbase();
+            $address = self::GetWalletAddressFromPubKey($wallet_from_info['public']);
+        }
+
+        //Instanciamos el puntero al chaindata
+        $chaindata = new DB();
+
+        //Comprobamos si estamos sincronizados o no
+        $lastBlockNum = BootstrapNode::GetLastBlockNum($chaindata,$isTestNet);
+        $lastBlockNum_Local = $chaindata->GetNextBlockNum();
+
+        if ($lastBlockNum != $lastBlockNum_Local)
+            return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." Blockchain it is not synchronized".PHP_EOL;
+
+        //Obtenemos lo que ha recibido el usuario en esta cartera
+        $totalReceived = "0";
+        $totalSpend = "0";
+
+        $totalReceived_tmp = $chaindata->db->query("SELECT amount FROM transactions WHERE wallet_to = '".$address."';");
+        if (!empty($totalReceived_tmp)) {
+            while ($txnInfo = $totalReceived_tmp->fetch_array(MYSQLI_ASSOC)) {
+                $totalReceived = bcadd($totalReceived, $txnInfo['amount'], 8);
+            }
+        }
+
+        //Obtenemos lo que ha gastado el usuario (pendiente o no de tramitar)
+        $totalSpended_tmp = $chaindata->db->query("SELECT amount FROM transactions WHERE wallet_from = '".$address."';");
+        if (!empty($totalSpended_tmp)) {
+            while ($txnInfo = $totalSpended_tmp->fetch_array(MYSQLI_ASSOC)) {
+                $totalSpend = bcadd($totalSpend, $txnInfo['amount'], 8);
+            }
+        }
+
+        $totalSpendedPending_tmp = $chaindata->db->query("SELECT amount FROM transactions_pending WHERE wallet_from = '".$address."';");
+        if (!empty($totalSpendedPending_tmp)) {
+            while ($txnInfo = $totalSpendedPending_tmp->fetch_array(MYSQLI_ASSOC)) {
+                $totalSpend = bcadd($totalSpend, $txnInfo['amount'], 8);
+            }
+        }
+
+        $totalSpendedPendingToSend_tmp = $chaindata->db->query("SELECT amount FROM transactions_pending_to_send WHERE wallet_from = '".$address."';");
+        if (!empty($totalSpendedPendingToSend_tmp)) {
+            while ($txnInfo = $totalSpendedPendingToSend_tmp->fetch_array(MYSQLI_ASSOC)) {
+                $totalSpend = bcadd($totalSpend, $txnInfo['amount'], 8);
+            }
+        }
+
+        return bcsub($totalReceived,$totalSpend,8);
+    }
+
+    /**
+     * Get Balance of wallet
+     *
+     * @param $address
+     * @param $isTestNet
+     * @return int|mixed
+     */
+    public static function API_GetPendingBalance($address,$isTestNet=false) {
+
+        if ($address == "coinbase") {
+            $wallet_from_info = self::GetCoinbase();
+            $address = self::GetWalletAddressFromPubKey($wallet_from_info['public']);
+        }
+
+        //Instanciamos el puntero al chaindata
+        $chaindata = new DB();
+
+        //Comprobamos si estamos sincronizados o no
+        $lastBlockNum = BootstrapNode::GetLastBlockNum($chaindata,$isTestNet);
+        $lastBlockNum_Local = $chaindata->GetNextBlockNum();
+
+        if ($lastBlockNum != $lastBlockNum_Local)
+            return "ERROR: Blockchain it is not synchronized";
+
+        //Obtenemos lo que ha recibido el usuario en esta cartera
+        $totalReceived = "0";
+
+        $totalReceivedPending_tmp = $chaindata->db->query("SELECT amount FROM transactions_pending WHERE wallet_to = '".$address."';");
+        if (!empty($totalReceivedPending_tmp)) {
+            while ($txnInfo = $totalReceivedPending_tmp->fetch_array(MYSQLI_ASSOC)) {
+                $totalReceived = bcadd($totalReceived, $txnInfo['amount'], 8);
+            }
+        }
+
+        $totalReceivedPendingToSend_tmp = $chaindata->db->query("SELECT amount FROM transactions_pending_to_send WHERE wallet_to = '".$address."';");
+        if (!empty($totalReceivedPendingToSend_tmp)) {
+            while ($txnInfo = $totalReceivedPendingToSend_tmp->fetch_array(MYSQLI_ASSOC)) {
+                $totalReceived = bcadd($totalReceived, $txnInfo['amount'], 8);
+            }
+        }
+
+        return number_format($totalReceived,8);
+    }
+
+    /**
+     * Get Balance of wallet
+     *
+     * @param DB $chaindata
+     * @param $address
+     * @return int|mixed
+     */
+    public static function GetBalanceWithChaindata(&$chaindata,$address) {
+
+        if ($address == "coinbase") {
+            $wallet_from_info = self::GetCoinbase();
+            $address = self::GetWalletAddressFromPubKey($wallet_from_info['public']);
+        }
+
+        //Obtenemos lo que ha recibido el usuario en esta cartera
+        $totalReceived = "0";
+        $totalSpend = "0";
+
+        $totalReceived_tmp = $chaindata->db->query("SELECT amount FROM transactions WHERE wallet_to = '".$address."';");
+        if (!empty($totalReceived_tmp)) {
+            while ($txnInfo = $totalReceived_tmp->fetch_array(MYSQLI_ASSOC)) {
+                $totalReceived = bcadd($totalReceived, $txnInfo['amount'], 8);
+            }
+        }
+
+        //Obtenemos lo que ha gastado el usuario (pendiente o no de tramitar)
+        $totalSpended_tmp = $chaindata->db->query("SELECT amount FROM transactions WHERE wallet_from = '".$address."';");
+        if (!empty($totalSpended_tmp)) {
+            while ($txnInfo = $totalSpended_tmp->fetch_array(MYSQLI_ASSOC)) {
+                $totalSpend = bcadd($totalSpend, $txnInfo['amount'], 8);
+            }
+        }
+
+        $totalSpendedPending_tmp = $chaindata->db->query("SELECT amount FROM transactions_pending WHERE wallet_from = '".$address."';");
+        if (!empty($totalSpendedPending_tmp)) {
+            while ($txnInfo = $totalSpendedPending_tmp->fetch_array(MYSQLI_ASSOC)) {
+                $totalSpend = bcadd($totalSpend, $txnInfo['amount'], 8);
+            }
+        }
+
+        return bcsub($totalReceived,$totalSpend,8);
+    }
+
+    /**
      * Gets the wallet address of a public key
      *
      * @param $pubKey
-     * @return string
+     * @return mixed
      */
     public static function GetWalletAddressFromPubKey($pubKey) {
-        return "VTx".md5($pubKey);
+        $pubKey = self::ParsePubKey($pubKey);
+        if (strlen($pubKey) == 451) {
+            return "VTx".md5($pubKey);
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * Parse public key
+     *
+     * @param $pubKey
+     * @return null|string
+     */
+    public static function ParsePubKey($pubKey) {
+
+        //Clear PUBLIC START END KEY
+        $pubKey = str_replace('-----BEGIN PUBLIC KEY-----','',$pubKey);
+        $pubKey = str_replace('-----END PUBLIC KEY-----','',$pubKey);
+
+        //Clear break lines
+        $pubKey = str_replace("\r",'',$pubKey);
+        $pubKey = str_replace("\n",'',$pubKey);
+        $pubKey = trim($pubKey);
+
+        //If pubkey if sended by get need parse spaces
+        $pubKey = str_replace(" ",'+',$pubKey);
+
+        $parsedPubKey = "-----BEGIN PUBLIC KEY-----\n";
+        $parsedPubKey .= trim(substr($pubKey,0,64))."\n";
+        $parsedPubKey .= trim(substr($pubKey,64,64))."\n";
+        $parsedPubKey .= trim(substr($pubKey,128,64))."\n";
+        $parsedPubKey .= trim(substr($pubKey,192,64))."\n";
+        $parsedPubKey .= trim(substr($pubKey,256,64))."\n";
+        $parsedPubKey .= trim(substr($pubKey,320,64))."\n";
+        $parsedPubKey .= trim(substr($pubKey,384,8))."\n";
+        $parsedPubKey .= "-----END PUBLIC KEY-----\n";
+
+        if (strlen($parsedPubKey) == 451)
+            return $parsedPubKey;
+        else
+            return null;
+
     }
 
     /**
