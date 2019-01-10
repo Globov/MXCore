@@ -16,7 +16,6 @@ web_js.inc.php
 web_header.tpl.php
 web_head.inc.php
 web_block.php
-index.php
 tmp/STOP_MINING
 tmp/MINERS_STARTED
 tmp/TX_INFO
@@ -26,4 +25,6 @@ tmp/main_thread_time
 tmp/db.update
 CONFIG.php
 bin/GENESIS_TESTNET.bat
-api/
+index_explorer.php
+api/index.php
+api/API_DOC.md

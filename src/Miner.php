@@ -81,7 +81,7 @@ class Miner {
                 $transactions[] = $new_txn;
         }
 
-        Display::_printer("Start minning block                      %G%txns%W%=" . count($transactions) . "             %G%threads%W%=" . MINER_MAX_SUBPROCESS);
+        Display::_printer("Start minning block                      %G%txns%W%=" . count($transactions) . "             %G%threads%W%=" . MINER_MAX_SUBPROCESS."    %G%difficulty%W%=".$gossip->difficulty);
 
         //Save transactions for this block
         Tools::writeFile(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_TX_INFO,@serialize($transactions));

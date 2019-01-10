@@ -243,6 +243,27 @@ if ($dbversion == 4) {
     $dbversion++;
 }
 
+if ($dbversion == 5) {
+
+    //Create new tmp table for blocks
+    $db->db->query("
+    CREATE TABLE IF NOT EXISTS `blocks_announced` (
+    `id`  int(11) UNSIGNED NOT NULL AUTO_INCREMENT ,
+    `block_hash`  varchar(128) NOT NULL ,
+    PRIMARY KEY (`id`)
+    )");
+
+    //Rename table
+    $db->db->query("RENAME TABLE blocks_pending_by_peers TO blocks_pending_to_display;");
+
+    //Remove unused tabled
+    $db->db->query("DROP TABLE transactions_pending_by_peers");
+
+    Display::_printer("Updating DB Schema #".$dbversion);
+
+    //Increment version to next stage
+    $dbversion++;
+}
 
 // update dbversion
 if ($dbversion != $_CONFIG['dbversion']) {

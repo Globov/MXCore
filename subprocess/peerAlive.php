@@ -87,10 +87,10 @@ if ($argv[1] == -1) {
     $peerIP = $argv[2];
     $peerPORT = $argv[3];
     $lastBlockHash = $argv[4];
-    $lastBlockHeihgt = $argv[5];
+    $lastBlockHeight = $argv[5];
 
     $infoToSend = array(
-        'action' => 'LASTBLOCKNUM'
+        'action' => 'STATUSNODE'
     );
 
     $response = null;
@@ -104,17 +104,31 @@ if ($argv[1] == -1) {
         $response = Tools::postContent('http://' . $peerIP . ':' . $peerPORT . '/gossip.php', $infoToSend,10);
     }
 
+    ob_start();
+    var_dump($response);
+    $varDumpResponse = ob_get_clean();
+
+    Tools::writeLog('Response de peerAlive '.$peerIP.':'.$peerPORT.' -> '.$varDumpResponse);
+
     //Check if response as ok
     if ($response->status) {
+
         //Check if peer have same height block
-        if ($response->result > ($lastBlockHeihgt+1)) {
+        if ($response->result->lastBlock > ($lastBlockHeight+1)) {
+
+            Tools::writeLog('Este peer '.$peerIP.':'.$peerPORT.' tiene mas bloques que yo');
 
             //Check if have same GENESIS block from peer
             $peerGenesisBlock = Peer::GetGenesisBlock($peerIP.':'.$peerPORT);
             $localGenesisBlock = $chaindata->GetGenesisBlock();
             if ($localGenesisBlock['block_hash'] == $peerGenesisBlock->block_hash) {
+
+                Tools::writeLog('Este peer '.$peerIP.':'.$peerPORT.' tiene el mismo genesis block');
+
                 //Write sync_with_peer
                 Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR."sync_with_peer",$peerIP.":".$peerPORT);
+            } else {
+                Tools::writeLog('Este peer '.$peerIP.':'.$peerPORT.' tiene distinto genesis block');
             }
         }
     }

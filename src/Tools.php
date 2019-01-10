@@ -117,9 +117,10 @@ class Tools {
      * @return mixed|string
      */
 
-    public static function postContent($url, $data, $timeout = 20, $username = null, $password = null)
+    public static function postContent($url, $data = array(), $timeout = 20, $username = null, $password = null)
     {
         $postdata = http_build_query($data);
+
         $opts = array('http' =>
             array(
                 'method'  => 'POST',
@@ -153,7 +154,7 @@ class Tools {
         $fp = @fopen($file, 'w');
         @fwrite($fp, $content);
         @fclose($fp);
-        @chmod($file, 0755);
+        @chmod($file, 0777);
     }
 
     /**
@@ -164,15 +165,17 @@ class Tools {
      * @param $content
      * @param $checkIfExistAndDelete
      */
-    public static function writeLog($file,$content='',$checkIfExistAndDelete = false) {
+    public static function writeLog($content='',$checkIfExistAndDelete = false) {
 
-        if ($checkIfExistAndDelete && @file_exists($file))
-            @unlink($file);
+        $file = self::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.'node_log';
 
-        $fp = @fopen($file, 'a');
-        @fwrite($fp, $content);
-        @fclose($fp);
-        @chmod($file, 0755);
+        if ($checkIfExistAndDelete && file_exists($file))
+            unlink($file);
+
+        $fp = fopen($file, 'a');
+        fwrite($fp, $content.PHP_EOL);
+        fclose($fp);
+        @chmod($file, 0777);
     }
 
     /**
@@ -274,6 +277,80 @@ class Tools {
     }
 
     /**
+     * Get datetime diff
+     *
+     * @param $dt1
+     * @param $dt2
+     * @return stdClass
+     */
+    public static function datetimeDiff($dt1, $dt2){
+        $t1 = strtotime($dt1);
+        $t2 = strtotime($dt2);
+
+        $dtd = new stdClass();
+        $dtd->interval = $t2 - $t1;
+        $dtd->total_sec = abs($t2-$t1);
+        $dtd->total_min = floor($dtd->total_sec/60);
+        $dtd->total_hour = floor($dtd->total_min/60);
+        $dtd->total_day = floor($dtd->total_hour/24);
+
+        $dtd->day = $dtd->total_day;
+        $dtd->hour = $dtd->total_hour -($dtd->total_day*24);
+        $dtd->min = $dtd->total_min -($dtd->total_hour*60);
+        $dtd->sec = $dtd->total_sec -($dtd->total_min*60);
+        return $dtd;
+    }
+
+    /**
+     * Get age date
+     *
+     * @param $ageObject
+     * @return string
+     */
+    public static function getAge($ageObject) {
+        $ageBlockMessage = "";
+        if ($ageObject->day == 1) {
+            $ageBlockMessage .= $ageObject->day." day ".$ageObject->hour." hrs";
+        } else if ($ageObject->day > 1) {
+            $ageBlockMessage .= $ageObject->day." days";
+        } else if ($ageObject->day == 0) {
+
+            if ($ageObject->hour > 0)
+                $ageBlockMessage .= $ageObject->hour." hrs";
+
+            if ($ageObject->min > 0) {
+                if (strlen($ageBlockMessage) > 0)
+                    $ageBlockMessage .= " ";
+
+                $ageBlockMessage .= $ageObject->min." mins";
+            }
+
+            if ($ageObject->sec > 0) {
+                if (strlen($ageBlockMessage) > 0)
+                    $ageBlockMessage .= " ";
+
+                $ageBlockMessage .= $ageObject->sec." secs";
+            }
+        }
+        return $ageBlockMessage;
+    }
+
+    /**
+     * Get global time
+     *
+     * @return false|int
+     */
+    public static function GetGlobalTime() {
+        //$worldTime = @json_decode(@file_get_contents('http://worldclockapi.com/api/json/utc/now'));
+        $worldTime = @json_decode(@file_get_contents('http://worldtimeapi.org/api/timezone/Etc/UTC'));
+        if (is_object($worldTime) && !empty($worldTime)) {
+            return strtotime(date('Y-m-d H:i:s', $worldTime->unixtime));
+        } else {
+            return time();
+        }
+    }
+
+    /**
      * Send a CURL POST message to a destination
      *
      * @param string $url
@@ -285,20 +362,20 @@ class Tools {
     {
         try {
 
-            $postdata = http_build_query($data);
+            $postdata = @http_build_query($data);
 
-            $ch = curl_init();
+            $ch = @curl_init();
 
-            curl_setopt($ch, CURLOPT_URL,$url);
-            curl_setopt($ch, CURLOPT_POST, 1);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $postdata);
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 0);
-            curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            @curl_setopt($ch, CURLOPT_URL,$url);
+            @curl_setopt($ch, CURLOPT_POST, 1);
+            @curl_setopt($ch, CURLOPT_POSTFIELDS, $postdata);
+            @curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 0);
+            @curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+            @curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
-            $server_output = json_decode(curl_exec($ch));
+            $server_output = @json_decode(@curl_exec($ch));
 
-            curl_close ($ch);
+            @curl_close ($ch);
             return $server_output;
         } catch (Exception $e) {
             return "error";

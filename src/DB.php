@@ -69,12 +69,12 @@ class DB {
      * Get config
      *
      * @param $key
-     * @return array
+     * @return string
      */
     public function GetConfig($key) {
         $currentConfig = $this->db->query("SELECT val FROM config WHERE cfg = '".$key."';")->fetch_assoc();
         if (!empty($currentConfig)) {
-            return $currentConfig;
+            return $currentConfig['val'];
         }
         return null;
     }
@@ -252,7 +252,7 @@ class DB {
             $transactions_chaindata = $this->db->query("SELECT * FROM transactions WHERE block_hash = '".$info_block['block_hash']."' ORDER BY tx_fee ASC, timestamp DESC;");
             $transactions = array();
             if (!empty($transactions_chaindata)) {
-                while ($transactionInfo = $transactions_chaindata->fetch_array(SQLITE3_ASSOC)) {
+                while ($transactionInfo = $transactions_chaindata->fetch_array(MYSQLI_ASSOC)) {
                     $transactions[] = $transactionInfo;
                 }
             }
@@ -380,18 +380,25 @@ class DB {
      * Returns a block given a height
      *
      * @param $height
+     * @param $withTransactions
      * @return mixed
      */
-    public function GetBlockByHeight($height) {
+    public function GetBlockByHeight($height,$withTransactions=true) {
+
         $sql = "SELECT * FROM blocks WHERE height = ".$height.";";
         $info_block = $this->db->query($sql)->fetch_assoc();
+
         if (!empty($info_block)) {
 
-            $transactions_chaindata = $this->db->query("SELECT * FROM transactions WHERE block_hash = '".$info_block['block_hash']."' ORDER BY tx_fee ASC, timestamp DESC;");
             $transactions = array();
-            if (!empty($transactions_chaindata)) {
-                while ($transactionInfo = $transactions_chaindata->fetch_array(MYSQLI_ASSOC)) {
-                    $transactions[] = $transactionInfo;
+
+            if ($withTransactions) {
+                $transactions_chaindata = $this->db->query("SELECT * FROM transactions WHERE block_hash = '".$info_block['block_hash']."' ORDER BY tx_fee ASC, timestamp DESC;");
+
+                if (!empty($transactions_chaindata)) {
+                    while ($transactionInfo = $transactions_chaindata->fetch_array(MYSQLI_ASSOC)) {
+                        $transactions[] = $transactionInfo;
+                    }
                 }
             }
 
@@ -528,12 +535,12 @@ class DB {
     }
 
     /**
-     * Delete transaction from temp table
+     * Delete block from temp table
      *
-     * @param $txHash
+     * @param $blockHash
      */
-    public function removePendingTransactionByPeers($txHash) {
-        $this->db->query("DELETE FROM transactions_pending_by_peers WHERE txn_hash='".$txHash."';");
+    public function removeBlockPendingByPeers($blockHash) {
+        $this->db->query("DELETE FROM blocks_pending_to_display WHERE block_previous='".$blockHash."';");
     }
 
     /**
@@ -541,8 +548,8 @@ class DB {
      *
      * @param $blockHash
      */
-    public function removeBlockPendingByPeers($blockHash) {
-        $this->db->query("DELETE FROM blocks_pending_by_peers WHERE block_previous='".$blockHash."';");
+    public function RemoveBlockToDisplay($blockHash) {
+        $this->db->query("DELETE FROM blocks_pending_to_display WHERE block_hash='".$blockHash."';");
     }
 
     /**
@@ -600,13 +607,7 @@ class DB {
                     //We eliminated the pending transaction
                     $this->removePendingTransaction($transaction->message());
                     $this->removePendingTransactionToSend($transaction->message());
-
-                    //Remove transaction from tmp table
-                    $this->removePendingTransactionByPeers($transaction->message());
                 }
-
-                //Remove block from tmp table
-                $this->removeBlockPendingByPeers($blockInfo->hash);
 
                 return true;
             }
@@ -642,9 +643,6 @@ class DB {
                         //We eliminated the pending transaction
                         $this->removePendingTransaction($transaction['txn_hash']);
                         $this->removePendingTransactionToSend($transaction['txn_hash']);
-
-                        //Remove transaction from tmp table
-                        $this->removePendingTransactionByPeers($transaction['txn_hash']);
                     }
                 }
 
@@ -665,32 +663,39 @@ class DB {
      * @param string $status
      * @return bool
      */
-    public function AddMinedBlockByPeer($minedBlock,$status) {
+    public function AddBlockToDisplay($minedBlock,$status) {
 
-        $info_block_chaindata = $this->db->query("SELECT block_hash FROM blocks_pending_by_peers WHERE block_hash = '".$minedBlock->hash."';")->fetch_assoc();
+        $info_block_chaindata = $this->db->query("SELECT block_hash FROM blocks_pending_to_display WHERE block_hash = '".$minedBlock->hash."';")->fetch_assoc();
         if (empty($info_block_chaindata)) {
-
-            //First add transactions
-            foreach ($minedBlock->transactions as $transaction) {
-
-                $wallet_from_pubkey = "";
-                $wallet_from = "";
-                if ($transaction->from != null) {
-                    $wallet_from_pubkey = $transaction->from;
-                    $wallet_from = Wallet::GetWalletAddressFromPubKey($transaction->from);
-                }
-
-                $sql_update_transactions = "INSERT INTO transactions_pending_by_peers (block_hash, txn_hash, wallet_from_key, wallet_from, wallet_to, amount, signature, tx_fee, timestamp) 
-                    VALUES ('".$minedBlock->hash."','".$transaction->message()."','".$wallet_from_pubkey."','".$wallet_from."','".$transaction->to."','".$transaction->amount."','".$transaction->signature."','".$transaction->tx_fee."','".$transaction->timestamp."');";
-                $this->db->query($sql_update_transactions);
-            }
-
             //SQL Insert Block
-            $sql_insert_block = "INSERT INTO blocks_pending_by_peers (status,block_previous,block_hash,root_merkle,nonce,timestamp_start_miner,timestamp_end_miner,difficulty,version,info)
+            $sql_insert_block = "INSERT INTO blocks_pending_to_display (status,block_previous,block_hash,root_merkle,nonce,timestamp_start_miner,timestamp_end_miner,difficulty,version,info)
             VALUES ('".$status."','".$minedBlock->previous."','".$minedBlock->hash."','".$minedBlock->merkle."','".$minedBlock->nonce."','".$minedBlock->timestamp."','".$minedBlock->timestamp_end."','".$minedBlock->difficulty."','".VERSION."','".$this->db->real_escape_string(@serialize($minedBlock->info))."');";
 
-            if ($this->db->query($sql_insert_block)) {
+            if ($this->db->query($sql_insert_block))
                 return true;
+        }
+        return false;
+    }
+
+    /**
+     * Remove block and transactions
+     *
+     * @param int $height
+     * @return bool
+     */
+    public function RemoveBlock($height) {
+
+        $infoBlock = $this->db->query("SELECT block_hash FROM blocks WHERE height = '".$height."';")->fetch_assoc();
+        if (!empty($infoBlock)) {
+            //Remove transactions of block from blockchain
+            $sqlRemoveTransactions = "DELETE FROM transactions WHERE block_hash = '".$infoBlock['block_hash']."';";
+            if ($this->db->query($sqlRemoveTransactions)) {
+
+                //Remove block from blockchain
+                $sqlRemoveBlock = "DELETE FROM blocks WHERE block_hash = '".$infoBlock['block_hash']."';";
+                if ($this->db->query($sqlRemoveBlock)) {
+                    return true;
+                }
             }
         }
         return false;
@@ -710,29 +715,52 @@ class DB {
     }
 
     /**
+     * Check if announced this block
+     *
+     * @param $blockHash
+     * @return bool
+     */
+    public function BlockHasBeenAnnounced($blockHash) {
+        $infoBlockAnnounced = $this->db->query("SELECT id FROM blocks_announced WHERE block_hash = '".$blockHash."';")->fetch_assoc();
+        if (empty($infoBlockAnnounced))
+            return false;
+        return true;
+    }
+
+    /**
+     * Add block hash to announced blocks
+     *
+     * @param $blockHash
+     * @return bool
+     */
+    public function AddBlockAnnounced($blockHash) {
+        $infoBlockAnnounced = $this->db->query("SELECT id FROM blocks_announced WHERE block_hash = '".$blockHash."';")->fetch_assoc();
+        if (empty($infoBlockAnnounced))
+            $this->db->query("INSERT INTO blocks_announced (block_hash) VALUES ('".$blockHash."');");
+        return true;
+    }
+
+    /**
+     * Remove block hash from announced blocks
+     *
+     * @param $blockHash
+     * @return bool
+     */
+    public function RemoveBlockAnnounced($blockHash) {
+        if ($this->db->query("DELETE FROM blocks_announced WHERE block_hash = '".$blockHash."';"))
+            return true;
+        return false;
+    }
+
+    /**
      * Return array of mined blocks by peers
      *
-     * @param $previous_hash
-     * @return bool|mixed
+     * @return array
      */
-    public function GetBlockPendingByPeer($previous_hash) {
-        $sql = "SELECT * FROM blocks_pending_by_peers WHERE block_previous = '".$previous_hash."'";
-        $info_block = $this->db->query($sql)->fetch_assoc();
-        if (!empty($info_block)) {
-
-            $transactions_chaindata = $this->db->query("SELECT * FROM transactions_pending_by_peers WHERE block_hash = '".$info_block['block_hash']."' ORDER BY tx_fee ASC, timestamp DESC;");
-            $transactions = array();
-            if (!empty($transactions_chaindata)) {
-                while ($transactionInfo = $transactions_chaindata->fetch_array(SQLITE3_ASSOC)) {
-                    $transactions[] = $transactionInfo;
-                }
-            }
-
-            $info_block["transactions"] = $transactions;
-
-            return $info_block;
-        }
-        return null;
+    public function GetBlockPendingByPeer() {
+        $sql = "SELECT * FROM blocks_pending_to_display ORDER BY height ASC LIMIT 1";
+        $firstBlockInDisplayTable = $this->db->query($sql)->fetch_assoc();
+        return $firstBlockInDisplayTable;
     }
 
     /**
@@ -789,29 +817,34 @@ class DB {
     /**
      * Returns last block
      *
+     * @param $withTransactions
+     *
      * @return mixed
      */
-    public function GetLastBlock() {
-        $genesis_block = null;
-        $blocks_chaindata = $this->db->query("SELECT * FROM blocks ORDER BY height DESC LIMIT 1");
+    public function GetLastBlock($withTransactions=true) {
+        $lastBlock = null;
+        $infoLastBlock = $this->db->query("SELECT * FROM blocks ORDER BY height DESC LIMIT 1");
         //If we have block information, we will import them into a new BlockChain
-        if (!empty($blocks_chaindata)) {
-            while ($blockInfo = $blocks_chaindata->fetch_array(MYSQLI_ASSOC)) {
+        if (!empty($infoLastBlock)) {
+            while ($blockInfo = $infoLastBlock->fetch_array(MYSQLI_ASSOC)) {
 
-                $transactions_chaindata = $this->db->query("SELECT * FROM transactions WHERE block_hash = '".$blockInfo['block_hash']."' ORDER BY tx_fee ASC, timestamp DESC;");
                 $transactions = array();
-                if (!empty($transactions_chaindata)) {
-                    while ($transactionInfo = $transactions_chaindata->fetch_array(MYSQLI_ASSOC)) {
-                        $transactions[] = $transactionInfo;
+
+                //Check if want transactions on request
+                if ($withTransactions) {
+                    $transactions_chaindata = $this->db->query("SELECT * FROM transactions WHERE block_hash = '" . $blockInfo['block_hash'] . "' ORDER BY tx_fee ASC, timestamp DESC;");
+                    if (!empty($transactions_chaindata)) {
+                        while ($transactionInfo = $transactions_chaindata->fetch_array(MYSQLI_ASSOC)) {
+                            $transactions[] = $transactionInfo;
+                        }
                     }
                 }
 
                 $blockInfo["transactions"] = $transactions;
-
-                $genesis_block = $blockInfo;
+                $lastBlock = $blockInfo;
             }
         }
-        return $genesis_block;
+        return $lastBlock;
 
     }
 
