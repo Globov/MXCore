@@ -24,11 +24,12 @@
 
 include('CONFIG.php');
 include('src/DB.php');
+include('src/ColorsCLI.php');
+include('src/Display.php');
+include('src/Subprocess.php');
 include('src/BootstrapNode.php');
 include('src/ArgvParser.php');
 include('src/Tools.php');
-include('src/ColorsCLI.php');
-include('src/Display.php');
 include('src/Wallet.php');
 include('src/Block.php');
 include('src/Blockchain.php');
@@ -37,6 +38,8 @@ include('src/Key.php');
 include('src/Pki.php');
 include('src/PoW.php');
 include('src/Transaction.php');
+include('src/GenesisBlock.php');
+include('src/Peer.php');
 include('src/Miner.php');
 
 $return = array(
@@ -47,6 +50,18 @@ $return = array(
 );
 
 date_default_timezone_set("UTC");
+
+//Check if NODE is alive
+if (@file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MAIN_THREAD_CLOCK)) {
+    $mainThreadTime = @file_get_contents(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_MAIN_THREAD_CLOCK);
+    $minedTime = date_diff(
+        date_create(date('Y-m-d H:i:s', $mainThreadTime)),
+        date_create(date('Y-m-d H:i:s', time()))
+    );
+    $diffTime = $minedTime->format('%s');
+    if ($diffTime >= 120)
+        $_REQUEST = null;
+}
 
 if (isset($_REQUEST)) {
     if (isset($_REQUEST['action'])) {
@@ -79,30 +94,98 @@ if (isset($_REQUEST)) {
             case 'MINEDBLOCK':
                 if (isset($_REQUEST['hash_previous']) && isset($_REQUEST['block'])) {
 
+                    Tools::writeLog('New connection from peer '.$_SERVER['REMOTE_ADDR'].' to gossip.php?action=MINEDBLOCK');
+
                     //Get last block
                     $lastBlock = $chaindata->GetLastBlock();
 
-                    if ($lastBlock['block_hash'] == $_REQUEST['hash_previous']) {
+                    /** @var Block $blockMinedByPeer */
+                    $blockMinedByPeer = Tools::objectToObject(@unserialize($_REQUEST['block']),"Block");
 
-                        //Valid block to add in Blockchain
-                        $returnCode = Blockchain::isValidBlockMinedByPeer($chaindata,$lastBlock['block_hash'],$_REQUEST['block']);
-                        if ($returnCode == "0x00000000") {
+                    if (is_object($blockMinedByPeer) && isset($blockMinedByPeer->hash)) {
+                        Tools::writeLog('Data received from: '.$_SERVER['REMOTE_ADDR']);
+                        Tools::writeLog('hash_previous: '.$_REQUEST['hash_previous']);
+                        Tools::writeLog('blockInfo: '.$_REQUEST['block']);
+
+                        //Check if is a next block
+                        if ($lastBlock['block_hash'] == $blockMinedByPeer->previous) {
+
+                            Tools::writeLog('Send me NEXT BLOCK');
+                            $return['message'] = "NEXT BLOCK";
+
+                            //Valid block to add in Blockchain
+                            $returnCode = Blockchain::isValidBlockMinedByPeer($chaindata,$lastBlock,$blockMinedByPeer);
+                            if ($returnCode == "0x00000000") {
+                                $return['status'] = true;
+                                $return['error'] = $returnCode;
+                            }
+                            else {
+                                $return['status'] = true;
+                                $return['error'] = $returnCode;
+                            }
+                        }
+
+                        //Check if same height block but different hash block
+                        else if ($lastBlock['block_previous'] == $blockMinedByPeer->previous && $lastBlock['block_hash'] != $blockMinedByPeer->hash) {
+
+                            Tools::writeLog('Send me Same height but different BLOCK');
+
+                            //Valid new block in same hiehgt to add in Blockchain
+                            $returnCode = Blockchain::isValidBlockMinedByPeerInSameHeight($chaindata,$lastBlock,$blockMinedByPeer);
+                            if ($returnCode == "0x00000000") {
+
+                                //Remove previous block from announce table
+                                //$chaindata->RemoveBlockAnnounced($blockMinedByPeer->previous);
+
+                                $return['status'] = true;
+                                $return['error'] = $returnCode;
+                            }
+                            else {
+                                $return['status'] = true;
+                                $return['error'] = $returnCode;
+                            }
+
+                            Tools::writeLog('Result isValidBlockMinedByPeerInSameHeight: '.$returnCode);
+
+                        }
+                        //Check if same block
+                        else if ($lastBlock['block_hash'] == $blockMinedByPeer->hash) {
+
+                            Tools::writeLog('Send me Same block: ' .$blockMinedByPeer->hash);
+
+                            //Check if i announced this block on main thread
+                            if (!$chaindata->BlockHasBeenAnnounced($blockMinedByPeer->hash)) {
+
+                                //Its same block i have in my blockchain but i not announced on main thread
+                                $chaindata->AddBlockToDisplay($blockMinedByPeer,"2x00000000");
+
+                                //Propagate mined block to network
+                                Tools::sendBlockMinedToNetworkWithSubprocess($chaindata,$blockMinedByPeer);
+
+                                Tools::writeLog('Accepted block, we will announce it in the main process');
+                            } else {
+                                Tools::writeLog('Discard block, i announced it');
+                            }
+
                             $return['status'] = true;
-                            $return['error'] = $returnCode;
+                            $return['error'] = "0x00000000";
                         }
                         else {
-                            $return['status'] = false;
-                            $return['error'] = $returnCode;
+
+                            Tools::writeLog($_SERVER['REMOTE_ADDR'].' Else message');
+
+                            //TODO Check if peer have more block than me, > = sync || < = send order to peer to synchronize with me
+                            $return['status'] = true;
+                            $return['error'] = "0x10000001";
+                            $return['message'] = "LastBlock: " . $lastBlock['block_hash'] . " | Received: ".$blockMinedByPeer->hash.'   -   LastBlockPrevious: '.$lastBlock['block_hash'].' | ReceivedPrevious: ' . $blockMinedByPeer->previous;
                         }
-                    }
-                    else {
-                        //TODO Check if peer have more block than me, > = sync || < = send order to peer to synchronize with me
-                        $return['status'] = false;
-                        $return['error'] = "0x10000001";
-                        $return['message'] = "LastBlock: " . $lastBlock['block_hash'] . " | Received: ".$_REQUEST['hash_previous'];
+                    } else {
+                        $return['status'] = true;
+                        $return['error'] = "5x00000000";
+                        $return['message'] = "Block received malformed";
                     }
                 } else {
-                    $return['status'] = false;
+                    $return['status'] = true;
                     $return['error'] = "0x10000002";
                     $return['message'] = "Need hashPrevious & blockInfo";
                 }
@@ -139,6 +222,20 @@ if (isset($_REQUEST)) {
                 $return['status'] = true;
                 $return['result'] = $chaindata->GetNextBlockNum();
             break;
+            case 'STATUSNODE':
+                $return['status'] = true;
+                $config = $chaindata->GetAllConfig();
+                $return['result'] = array(
+                    'hashrate'      => $config['hashrate'],
+                    'miner'         => $config['miner'],
+                    'network'       => $config['network'],
+                    'p2p'           => $config['p2p'],
+                    'syncing'       => $config['syncing'],
+                    'dbversion'     => $config['dbversion'],
+                    'nodeversion'   => VERSION,
+                    'lastBlock'     => $chaindata->GetNextBlockNum()
+                );
+            break;
             case 'GETGENESIS':
                 $return['status'] = true;
                 $return['result'] = $chaindata->GetGenesisBlock();
@@ -158,6 +255,6 @@ if (isset($_REQUEST)) {
         $chaindata->db->close();
     }
 }
-echo @json_encode($return);
+echo json_encode($return);
 exit();
 ?>

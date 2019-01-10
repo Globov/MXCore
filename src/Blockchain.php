@@ -27,46 +27,66 @@ class Blockchain {
      * Function that checks the difficulty of the network given the current block
      *
      * @param DB $chaindata
-     * @param $currentDifficulty
+     * @param $height
+     * @param $isTestNet
      *
-     * @return bool
+     * @return array
      */
-    public static function checkDifficulty(&$chaindata,&$currentDifficulty) {
+    public static function checkDifficulty(&$chaindata,$height = null,$isTestNet=false) {
 
-        $genesisBlock = $chaindata->GetGenesisBlock();
-        $genesisBlockInfo = @unserialize($genesisBlock['info']);
+        //Get last block or by height
+        $currentBlock = ($height == null) ? $chaindata->GetLastBlock(false):$chaindata->GetBlockByHeight($height,false);
 
-        $lastBlock = $chaindata->GetLastBlock();
-        $lastBlockInfo = @unserialize($lastBlock['info']);
+        //Initial difficulty
+        if ($currentBlock['height'] == 0)
+            return [5,1];
 
-        //Check current count blocks difficulty
-        if ($lastBlockInfo['current_blocks_difficulty'] == $genesisBlockInfo['num_blocks_to_change_difficulty']) {
+        // for first 5 blocks use difficulty 1
+        if ($currentBlock['height'] < 5)
+            return [5,1];
 
-            $firstBlockToCheck = $chaindata->GetBlockByHeight($chaindata->GetNextBlockNum() - $genesisBlockInfo['num_blocks_to_change_difficulty']);
-            $lastBlockToCheck = $chaindata->GetLastBlock();
+        // Limit of last blocks to check time
+        $limit = 20;
+        if ($currentBlock['height'] < 20)
+            $limit = $currentBlock['height'] - 1;
 
-            //We obtain the number of minutes in which the previous 2500 blocks have been mined
-            $minutesMinedLast2500Blocks = round(abs($firstBlockToCheck['timestamp_end_miner'] - $lastBlockToCheck['timestamp_end_miner']) / 60,0);
+        //Get limit check block
+        $limitBlock = $chaindata->GetBlockByHeight($currentBlock['height']-$limit);
 
-            //$minutesMinedLast2016Blocks = round(abs($this->blocks[1]->timestamp - $this->blocks[(count($this->blocks) - 1)]->timestamp) / 60,0);
+        //Get diff time
+        $dateDiff = date_diff(
+            date_create(date('Y-m-d H:i:s', $currentBlock['timestamp_end_miner'])),
+            date_create(date('Y-m-d H:i:s', $limitBlock['timestamp_end_miner']))
+        );
+        $diffTime = (intval($dateDiff->format('%d'))*24*60*60) + (intval($dateDiff->format('%h'))*60*60) + (intval($dateDiff->format('%i'))*60) + intval($dateDiff->format('%s'));
+        $avgTime = ceil($diffTime / $limit);
 
-            if ($minutesMinedLast2500Blocks <= 0)
-                $minutesMinedLast2500Blocks = 1;
+        //Default same difficulty
+        $difficulty = $currentBlock['difficulty'];
 
-            //We get the difficulty setting
-            $adjustDifficulty = $genesisBlockInfo['time_expected_to_mine'] / $minutesMinedLast2500Blocks;
+        //Max 9 - Min 7
+        $minAvg = 420;
+        $maxAvg = 540;
 
-            //We readjusted the difficulty
-            $currentDifficulty *= $adjustDifficulty;
-
-            //If the difficulty is less than 1, we set it to 1
-            //The difficulty can not be less than 1 because, if not the target of cut for validity, a hash would exceed the maximum hash
-            if ($currentDifficulty < 1)
-                $currentDifficulty = 1;
-
-            return true;
+        //If testnet Max 3 - Min 1
+        if ($isTestNet) {
+            $minAvg = 105;
+            $maxAvg = 180;
         }
-        return false;
+
+        // if lower than 1 min, increase by 5%
+        if ($avgTime < $minAvg)
+            $difficulty = bcmul(strval($currentBlock['difficulty']), "1.05",2);
+
+        // if bigger than 3 min, decrease by 5%
+        elseif ($avgTime > $maxAvg)
+            $difficulty = bcmul(strval($currentBlock['difficulty']), "0.95",2);
+
+        //MIn difficulty is 1
+        if ($difficulty < 5)
+            $difficulty = 5;
+
+        return [$difficulty,$avgTime];
     }
 
     /**
@@ -109,27 +129,24 @@ class Blockchain {
      * if it is valid, add the block to the temporary table so that the main process adds it to the blockchain
      *
      * @param DB $chaindata
-     * @param string $previousHashMyBlockchain
-     * @param Block $serializedBlockMined
+     * @param Block $lastBlock
+     * @param Block $blockMinedByPeer
      * @return bool
      */
-    public static function isValidBlockMinedByPeer(&$chaindata,$previousHashMyBlockchain, $serializedBlockMined) {
-
-        /** @var Block $blockMinedByPeer */
-        $blockMinedByPeer = Tools::objectToObject(@unserialize($serializedBlockMined),"Block");
+    public static function isValidBlockMinedByPeer(&$chaindata,$lastBlock, $blockMinedByPeer) {
 
         if ($blockMinedByPeer == null)
             return "0x00000004";
 
         //If the previous block received by network refer to the last block of my blockchain
-        if ($blockMinedByPeer->previous != $previousHashMyBlockchain) {
-            $chaindata->AddMinedBlockByPeer($blockMinedByPeer,"0x00000003");
+        if ($blockMinedByPeer->previous != $lastBlock['block_hash']) {
+            $chaindata->AddBlockToDisplay($blockMinedByPeer,"0x00000003");
             return "0x00000003";
         }
 
         //If the block is valid
         if (!$blockMinedByPeer->isValid()) {
-            $chaindata->AddMinedBlockByPeer($blockMinedByPeer,"0x00000002");
+            $chaindata->AddBlockToDisplay($blockMinedByPeer,"0x00000002");
             return "0x00000002";
         }
 
@@ -143,18 +160,24 @@ class Blockchain {
         //Check if rewarded transaction is valid, prevent hack money
         if ($blockMinedByPeer->isValidReward($numBlock,$isTestnet)) {
 
-            //Add this block in pending block
-            $chaindata->AddMinedBlockByPeer($blockMinedByPeer,"0x00000000");
+            //Add this block in pending block (DISPLAY)
+            $chaindata->AddBlockToDisplay($blockMinedByPeer,"0x00000000");
 
             //Propagate mined block to network
             Tools::sendBlockMinedToNetworkWithSubprocess($chaindata,$blockMinedByPeer);
 
-            return "0x00000000";
+            //AddBlock to blockchain
+             if ($chaindata->addBlock($numBlock,$blockMinedByPeer)) {
+                 return "0x00000000";
+             } else {
+                 return "ERROR NO SE HA PODIDO AGREGAR".$numBlock;
+             }
         } else {
-            $chaindata->AddMinedBlockByPeer($blockMinedByPeer,"0x00000001");
+            $chaindata->AddBlockToDisplay($blockMinedByPeer,"0x00000001");
             return "0x00000001";
         }
     }
+
 
     /**
      * Calc total fees of pending transactions to add on new block
@@ -177,6 +200,79 @@ class Blockchain {
             }
         }
         return $totalFees;
+    }
+
+    /**
+     * Check if block received by peer is valid
+     * if it is valid, add the block to the temporary table so that the main process adds it to the blockchain
+     *
+     * @param DB $chaindata
+     * @param Block $lastBlock
+     * @param Block $blockMinedByPeer
+     * @return bool
+     */
+    public static function isValidBlockMinedByPeerInSameHeight(&$chaindata,$lastBlock, $blockMinedByPeer) {
+
+        //If dont have new block
+        if ($blockMinedByPeer == null)
+            return "0x00000004";
+
+        //Check if new block is valid
+        if (!$blockMinedByPeer->isValid()) {
+            $chaindata->AddBlockToDisplay($blockMinedByPeer,"1x00000002");
+            return "0x00000002";
+        }
+
+        //Default, no accept new block
+        $acceptNewBlock = false;
+
+        $numNewBlock = Tools::hex2dec($blockMinedByPeer->hash);
+        $numLastBlock = Tools::hex2dec($lastBlock['block_hash']);
+
+        //If new block is smallest than last block accept new block
+        if (bccomp($numLastBlock, $numNewBlock) == 1)
+            $acceptNewBlock = true;
+
+
+        if ($acceptNewBlock)
+            Tools::writeLog('ACCEPTED NEW BLOC');
+
+        //Check if node is on testnet
+        $isTestnet = false;
+        if ($chaindata->GetNetwork() == "testnet")
+            $isTestnet = true;
+
+        //Check if rewarded transaction is valid, prevent hack money
+        if ($blockMinedByPeer->isValidReward($lastBlock['height'],$isTestnet)) {
+
+            Tools::writeLog('REWARD VALIDATED');
+
+            if ($acceptNewBlock) {
+
+                //Remove last block
+                if ($chaindata->RemoveBlock($lastBlock['height'])) {
+
+                    //AddBlock to blockchain
+                    $chaindata->addBlock($lastBlock['height'],$blockMinedByPeer);
+
+                    //Add this block in pending block (DISPLAY)
+                    $chaindata->AddBlockToDisplay($blockMinedByPeer,"1x00000000");
+
+                    Tools::writeLog('ADD NEW BLOCK in same height');
+
+                    //Propagate mined block to network
+                    Tools::sendBlockMinedToNetworkWithSubprocess($chaindata,$blockMinedByPeer);
+
+                    Tools::writeLog('Propagated new block in same height');
+
+                    return "0x00000000";
+                } else
+                    return "0x00000001";
+            }
+        } else {
+            $chaindata->AddBlockToDisplay($blockMinedByPeer,"1x00000001");
+            return "0x00000001";
+        }
     }
 }
 ?>

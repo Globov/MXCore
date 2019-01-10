@@ -58,6 +58,31 @@ class Wallet {
     }
 
     /**
+     * Get all wallets
+     *
+     * @return bool|mixed
+     */
+    public static function GetAccounts() {
+
+        $accounts = array();
+
+        $files = scandir(Tools::GetBaseDir().'data'.DIRECTORY_SEPARATOR.'wallets'.DIRECTORY_SEPARATOR);
+        foreach($files as $file) {
+            if ($file == '.' || $file == '..')
+                continue;
+
+            $accountKeys = @unserialize(@file_get_contents($file));
+            if (is_array($accountKeys) && !empty($accountKeys)) {
+                $walletAccount = Wallet::GetWalletAddressFromPubKey($accountKeys['public']);
+                if ($walletAccount != null)
+                    $accounts[] = $walletAccount;
+            }
+        }
+
+        return $accounts;
+    }
+
+    /**
      * Get coinbase info
      *
      * @return bool|mixed

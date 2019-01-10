@@ -57,8 +57,7 @@ class Transaction {
             $this->timestamp = $timestamp;
         } else {
             //Guardamos el tiempo en el que se crea la transaccion
-            $date = new DateTime();
-            $this->timestamp = $date->getTimestamp();
+            $this->timestamp = Tools::GetGlobalTime();
             if ($sign = Pki::encrypt($this->message(), $privKey,$password)) {
                 $this->signature = $sign;
                 $this->hash = $this->message();

@@ -32,6 +32,8 @@ class Peer {
      * @param $currentBlocks
      * @param $totalBlocks
      * @param $ipAndPort
+     *
+     * @return bool
      */
     public static function SyncBlocks(&$gossip,$nextBlocksToSyncFromPeer,$currentBlocks,$totalBlocks,$ipAndPort) {
         $blocksSynced = 0;
@@ -60,7 +62,7 @@ class Peer {
                 $transactionsSynced = $transactions;
 
                 $blockchainNull = "";
-                $block = new Block(
+                $blockToImport = new Block(
                     $object->block_previous,
                     $object->difficulty,
                     $transactions,
@@ -84,30 +86,49 @@ class Peer {
                 if ($lastBlock['block_hash'] == $object->block_previous) {
 
                     //If the block is valid
-                    if ($block->isValid()) {
+                    if ($blockToImport->isValid()) {
 
                         //Check if rewarded transaction is valid, prevent hack money
-                        if ($block->isValidReward($object->height,$gossip->isTestNet)) {
+                        if ($blockToImport->isValidReward($object->height,$gossip->isTestNet)) {
                             //We add the block to the chaindata and blockchain
-                            $gossip->chaindata->addBlock($object->height,$block);
+                            $gossip->chaindata->addBlock($object->height,$blockToImport);
 
                             //Save block pointer
-                            $blockSynced = $block;
+                            $blockSynced = $blockToImport;
 
                             $blocksSynced++;
                         } else {
-                            Display::_error("Peer ".$ipAndPort." added to blacklist       %G%reason%W%=Reward transaction not valid");
+                            Display::_warning("Peer ".$ipAndPort." added to blacklist       %G%reason%W%=Reward transaction not valid");
                             $gossip->chaindata->addPeerToBlackList($ipAndPort);
                             return null;
                         }
                     } else {
-                        Display::_error("Peer ".$ipAndPort." added to blacklist       %G%reason%W%=Has a block that I can not validate");
+                        Display::_warning("Peer ".$ipAndPort." added to blacklist       %G%reason%W%=Has a block that I can not validate");
                         $gossip->chaindata->addPeerToBlackList($ipAndPort);
                         return null;
                     }
+
+                //Check if my last block is the same height of the block to import
+                } else if ($lastBlock['block_previous'] == $blockToImport->previous && $lastBlock['block_hash'] != $blockToImport->hash) {
+
+                    //Valid new block in same hiehgt to add in Blockchain
+                    $returnCode = Blockchain::isValidBlockMinedByPeerInSameHeight($gossip->chaindata,$lastBlock,$blockToImport);
+                    if ($returnCode == "0x00000000") {
+                        //Save block pointer
+                        $blockSynced = $blockToImport;
+
+                        $blocksSynced++;
+                    }
+                } else if ($lastBlock['block_previous'] == $object->block_previous && $lastBlock['block_hash'] == $object->block_hash) {
+                    return null;
                 } else {
-                    Display::_error("Peer ".$ipAndPort." added to blacklist       %G%reason%W%=Peer Previous block doesnt match with local last block");
-                    $gossip->chaindata->addPeerToBlackList($ipAndPort);
+
+
+                    //Remove last block and resync
+                    $gossip->chaindata->RemoveBlock($lastBlock['height']);
+
+                    //Display::_warning("Peer ".$ipAndPort." added to blacklist       %G%reason%W%=Peer Previous block doesnt match with local last block");
+                    //$gossip->chaindata->addPeerToBlackList($ipAndPort);
                     return null;
                 }
             }

@@ -103,7 +103,7 @@ class Block {
      * @param $privKey
      * @param $amount
      * @param $isTestNet
-     * @return Block
+     *
      */
     public static function createGenesis($coinbase, $privKey, $amount, $isTestNet=false) {
         $transactions = array(new Transaction(null,$coinbase,$amount,$privKey,"",""));
@@ -149,8 +149,7 @@ class Block {
      */
     public function mine($idMiner) {
 
-        $date = new DateTime();
-        $this->timestamp = $date->getTimestamp();
+        $this->timestamp = Tools::GetGlobalTime();
 
         //We prepare the transactions that will go in the block
         $data = "";
@@ -176,8 +175,7 @@ class Block {
             $this->merkle = "";
         }
 
-        $date = new DateTime();
-        $this->timestamp_end = $date->getTimestamp();
+        $this->timestamp_end = Tools::GetGlobalTime();
 
     }
 

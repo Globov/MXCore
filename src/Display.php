@@ -63,7 +63,7 @@ class Display {
      */
     public static function _printer($string) {
         $date = new DateTime();
-        $formatted_string = "%G%INFO%W% [".$date->format("m-d|H:i:s.u")."] ".$string."%W%".PHP_EOL;
+        $formatted_string = "%G%INFO%W% [".$date->format("m-d|H:i:s")."] ".$string."%W%".PHP_EOL;
         $colored_string = self::_replaceColors($formatted_string);
         echo $colored_string;
         ob_flush();
@@ -75,19 +75,31 @@ class Display {
      */
     public static function _debug($string) {
         $date = new DateTime();
-        $formatted_string = "%Y%DEBUG%W% [".$date->format("m-d|H:i:s.u")."] ".$string."%W%".PHP_EOL;
+        $formatted_string = "%Y%DEBUG%W% [".$date->format("m-d|H:i:s")."] ".$string."%W%".PHP_EOL;
         $colored_string = self::_replaceColors($formatted_string);
         echo $colored_string;
         ob_flush();
     }
 
     /**
-     * Write a debug line in the CMD
+     * Write a Error line in the CMD
      * @param $string
      */
     public static function _error($string) {
         $date = new DateTime();
-        $formatted_string = "%LR%ERROR%W% [".$date->format("m-d|H:i:s.u")."] ".$string."%W%".PHP_EOL;
+        $formatted_string = "%LR%ERROR%W% [".$date->format("m-d|H:i:s")."] ".$string."%W%".PHP_EOL;
+        $colored_string = self::_replaceColors($formatted_string);
+        echo $colored_string;
+        ob_flush();
+    }
+
+    /**
+     * Write a Warning line in the CMD
+     * @param $string
+     */
+    public static function _warning($string) {
+        $date = new DateTime();
+        $formatted_string = "%LR%WARN%W% [".$date->format("m-d|H:i:s")."] ".$string."%W%".PHP_EOL;
         $colored_string = self::_replaceColors($formatted_string);
         echo $colored_string;
         ob_flush();

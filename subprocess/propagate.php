@@ -22,8 +22,6 @@
 // SOFTWARE.
 //
 
-ob_start();
-
 include(__DIR__.DIRECTORY_SEPARATOR.'..'.DIRECTORY_SEPARATOR.'CONFIG.php');
 include(__DIR__.DIRECTORY_SEPARATOR.'..'.DIRECTORY_SEPARATOR.'src'.DIRECTORY_SEPARATOR.'DB.php');
 include(__DIR__.DIRECTORY_SEPARATOR.'..'.DIRECTORY_SEPARATOR.'src'.DIRECTORY_SEPARATOR.'ColorsCLI.php');
@@ -67,11 +65,12 @@ $numRetrys = $argv[4];
 $blockMined = Tools::objectToObject(@unserialize(@file_get_contents(Tools::GetBaseDir()."tmp".DIRECTORY_SEPARATOR.Subprocess::$FILE_PROPAGATE_BLOCK)),"Block");
 if ($blockMined != null && is_object($blockMined)) {
 
+    Tools::writeLog('SUBPROCESS::Start new propagation to '.$peerIP.':'.$peerPORT);
+
     $chaindata = new DB();
 
     $infoToSend = array(
         'action' => 'MINEDBLOCK',
-        'height' => $chaindata->GetNextBlockNum(),
         'hash_previous' => $blockMined->previous,
         'block' => @serialize($blockMined)
     );
@@ -91,12 +90,10 @@ if ($blockMined != null && is_object($blockMined)) {
     if (!isset($response->status))
         $retryConnection = true;
 
-    if (isset($response->status) && (!$response->status)) {
-        $retryConnection = true;
-    }
-
     //Retry propagation block
     if ($retryConnection && $numRetrys <= 5) {
+
+        //Tools::writeLog('Retry propagation ('.$peerIP.':'.$peerPORT.')');
 
         //Write log
         Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR."log","Propagation #".$peerIP.":".$peerPORT." retry - error: " . print_r($response,true));
