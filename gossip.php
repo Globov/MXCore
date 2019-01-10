@@ -96,6 +96,9 @@ if (isset($_REQUEST)) {
 
                     Tools::writeLog('New connection from peer '.$_SERVER['REMOTE_ADDR'].' to gossip.php?action=MINEDBLOCK');
 
+                    //Get last block
+                    $lastBlock = $chaindata->GetLastBlock();
+
                     /** @var Block $blockMinedByPeer */
                     $blockMinedByPeer = Tools::objectToObject(@unserialize($_REQUEST['block']),"Block");
 
