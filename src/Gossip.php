@@ -265,9 +265,6 @@ class Gossip {
 
                     Display::_printer("LastBlock: %G%".$lastBlock['block_hash']);
                     Display::_printer("Difficulty: %G%".$this->difficulty);
-
-                    $this->difficulty = $lastBlock['difficulty'];
-
                 }
 
                 //Check if have same GENESIS block from BootstrapNode

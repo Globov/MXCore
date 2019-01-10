@@ -103,14 +103,10 @@ if (isset($_REQUEST)) {
                     $blockMinedByPeer = Tools::objectToObject(@unserialize($_REQUEST['block']),"Block");
 
                     if (is_object($blockMinedByPeer) && isset($blockMinedByPeer->hash)) {
-                        Tools::writeLog('Data received from: '.$_SERVER['REMOTE_ADDR']);
-                        Tools::writeLog('hash_previous: '.$_REQUEST['hash_previous']);
-                        Tools::writeLog('blockInfo: '.$_REQUEST['block']);
 
                         //Check if is a next block
                         if ($lastBlock['block_hash'] == $blockMinedByPeer->previous) {
 
-                            Tools::writeLog('Send me NEXT BLOCK');
                             $return['message'] = "NEXT BLOCK";
 
                             //Valid block to add in Blockchain
