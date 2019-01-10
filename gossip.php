@@ -96,84 +96,92 @@ if (isset($_REQUEST)) {
 
                     Tools::writeLog('New connection from peer '.$_SERVER['REMOTE_ADDR'].' to gossip.php?action=MINEDBLOCK');
 
-                    //Get last block
-                    $lastBlock = $chaindata->GetLastBlock();
-
                     /** @var Block $blockMinedByPeer */
                     $blockMinedByPeer = Tools::objectToObject(@unserialize($_REQUEST['block']),"Block");
 
                     if (is_object($blockMinedByPeer) && isset($blockMinedByPeer->hash)) {
 
-                        //Check if is a next block
-                        if ($lastBlock['block_hash'] == $blockMinedByPeer->previous) {
+                        //Check if difficulty its ok
+                        $currentDifficulty = Blockchain::checkDifficulty($chaindata);
 
-                            $return['message'] = "NEXT BLOCK";
-
-                            //Valid block to add in Blockchain
-                            $returnCode = Blockchain::isValidBlockMinedByPeer($chaindata,$lastBlock,$blockMinedByPeer);
-                            if ($returnCode == "0x00000000") {
-                                $return['status'] = true;
-                                $return['error'] = $returnCode;
-                            }
-                            else {
-                                $return['status'] = true;
-                                $return['error'] = $returnCode;
-                            }
-                        }
-
-                        //Check if same height block but different hash block
-                        else if ($lastBlock['block_previous'] == $blockMinedByPeer->previous && $lastBlock['block_hash'] != $blockMinedByPeer->hash) {
-
-                            Tools::writeLog('Send me Same height but different BLOCK');
-
-                            //Valid new block in same hiehgt to add in Blockchain
-                            $returnCode = Blockchain::isValidBlockMinedByPeerInSameHeight($chaindata,$lastBlock,$blockMinedByPeer);
-                            if ($returnCode == "0x00000000") {
-
-                                //Remove previous block from announce table
-                                //$chaindata->RemoveBlockAnnounced($blockMinedByPeer->previous);
-
-                                $return['status'] = true;
-                                $return['error'] = $returnCode;
-                            }
-                            else {
-                                $return['status'] = true;
-                                $return['error'] = $returnCode;
-                            }
-
-                            Tools::writeLog('Result isValidBlockMinedByPeerInSameHeight: '.$returnCode);
-
-                        }
-                        //Check if same block
-                        else if ($lastBlock['block_hash'] == $blockMinedByPeer->hash) {
-
-                            Tools::writeLog('Send me Same block: ' .$blockMinedByPeer->hash);
-
-                            //Check if i announced this block on main thread
-                            if (!$chaindata->BlockHasBeenAnnounced($blockMinedByPeer->hash)) {
-
-                                //Its same block i have in my blockchain but i not announced on main thread
-                                $chaindata->AddBlockToDisplay($blockMinedByPeer,"2x00000000");
-
-                                //Propagate mined block to network
-                                Tools::sendBlockMinedToNetworkWithSubprocess($chaindata,$blockMinedByPeer);
-
-                                Tools::writeLog('Accepted block, we will announce it in the main process');
-                            } else {
-                                Tools::writeLog('Discard block, i announced it');
-                            }
-
+                        //Not same difficulty, discard block
+                        if ($currentDifficulty[0] != $blockMinedByPeer->difficulty) {
                             $return['status'] = true;
-                            $return['error'] = "0x00000000";
+                            $return['error'] = "4x00000000";
+                            $return['message'] = "Block difficulty hacked?";
                         }
                         else {
+                            //Check if is a next block
+                            if ($lastBlock['block_hash'] == $blockMinedByPeer->previous) {
 
-                            Tools::writeLog($_SERVER['REMOTE_ADDR'].' Else message');
+                                $return['message'] = "NEXT BLOCK";
 
-                            //TODO Check if peer have more block than me, > = sync || < = send order to peer to synchronize with me
-                            $return['status'] = true;
-                            $return['error'] = "0x10000001";
-                            $return['message'] = "LastBlock: " . $lastBlock['block_hash'] . " | Received: ".$blockMinedByPeer->hash.'   -   LastBlockPrevious: '.$lastBlock['block_hash'].' | ReceivedPrevious: ' . $blockMinedByPeer->previous;
+                                //Valid block to add in Blockchain
+                                $returnCode = Blockchain::isValidBlockMinedByPeer($chaindata,$lastBlock,$blockMinedByPeer);
+                                if ($returnCode == "0x00000000") {
+                                    $return['status'] = true;
+                                    $return['error'] = $returnCode;
+                                }
+                                else {
+                                    $return['status'] = true;
+                                    $return['error'] = $returnCode;
+                                }
+                            }
+
+                            //Check if same height block but different hash block
+                            else if ($lastBlock['block_previous'] == $blockMinedByPeer->previous && $lastBlock['block_hash'] != $blockMinedByPeer->hash) {
+
+                                Tools::writeLog('Send me Same height but different BLOCK');
+
+                                //Valid new block in same hiehgt to add in Blockchain
+                                $returnCode = Blockchain::isValidBlockMinedByPeerInSameHeight($chaindata,$lastBlock,$blockMinedByPeer);
+                                if ($returnCode == "0x00000000") {
+
+                                    //Remove previous block from announce table
+                                    //$chaindata->RemoveBlockAnnounced($blockMinedByPeer->previous);
+
+                                    $return['status'] = true;
+                                    $return['error'] = $returnCode;
+                                }
+                                else {
+                                    $return['status'] = true;
+                                    $return['error'] = $returnCode;
+                                }
+
+                                Tools::writeLog('Result isValidBlockMinedByPeerInSameHeight: '.$returnCode);
+
+                            }
+                            //Check if same block
+                            else if ($lastBlock['block_hash'] == $blockMinedByPeer->hash) {
+
+                                Tools::writeLog('Send me Same block: ' .$blockMinedByPeer->hash);
+
+                                //Check if i announced this block on main thread
+                                if (!$chaindata->BlockHasBeenAnnounced($blockMinedByPeer->hash)) {
+
+                                    //Its same block i have in my blockchain but i not announced on main thread
+                                    $chaindata->AddBlockToDisplay($blockMinedByPeer,"2x00000000");
+
+                                    //Propagate mined block to network
+                                    Tools::sendBlockMinedToNetworkWithSubprocess($chaindata,$blockMinedByPeer);
+
+                                    Tools::writeLog('Accepted block, we will announce it in the main process');
+                                } else {
+                                    Tools::writeLog('Discard block, i announced it');
+                                }
+
+                                $return['status'] = true;
+                                $return['error'] = "0x00000000";
+                            }
+                            else {
+
+                                Tools::writeLog($_SERVER['REMOTE_ADDR'].' Else message');
+
+                                //TODO Check if peer have more block than me, > = sync || < = send order to peer to synchronize with me
+                                $return['status'] = true;
+                                $return['error'] = "0x10000001";
+                                $return['message'] = "LastBlock: " . $lastBlock['block_hash'] . " | Received: ".$blockMinedByPeer->hash.'   -   LastBlockPrevious: '.$lastBlock['block_hash'].' | ReceivedPrevious: ' . $blockMinedByPeer->previous;
+                            }
                         }
                     } else {
                         $return['status'] = true;
