@@ -78,6 +78,12 @@ class Gossip {
         $this->isTestNet = $isTestNet;
         $this->enable_mine = $enable_mine;
 
+        //Save node info
+        $db->SetConfig('node_name',$name);
+        $db->SetConfig('node_ip',$ip);
+        $db->SetConfig('node_port',$port);
+        $db->SetConfig('node_version',VERSION);
+
         //Set network config
         if ($this->isTestNet)
             $db->SetConfig('network','testnet');
@@ -89,6 +95,12 @@ class Gossip {
             $db->SetConfig('miner','on');
         else
             $db->SetConfig('miner','off');
+
+        //Set bootstrap config
+        if ($this->bootstrap_node)
+            $db->SetConfig('isBootstrap','on');
+        else
+            $db->SetConfig('isBootstrap','off');
 
         //Set p2p config
         if ($this->p2p_enabled)
@@ -172,6 +184,7 @@ class Gossip {
 
             Display::_printer("LastBlock: %G%".$lastBlock['block_hash']);
             Display::_printer("Difficulty: %G%".$this->difficulty);
+            Display::_printer("Current peers: %G%".count($this->chaindata->GetAllPeers()));
 
                 //Check peers status
             $this->CheckConnectionWithPeers();

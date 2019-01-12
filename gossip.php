@@ -96,6 +96,9 @@ if (isset($_REQUEST)) {
 
                     Tools::writeLog('GOSSIP_MINEDBLOCK -> New connection from peer '.$_SERVER['REMOTE_ADDR'].' to gossip.php?action=MINEDBLOCK');
 
+                    //Get current network
+                    $isTestNet = ($chaindata->GetConfig('network') == 'testnet') ? true:false;
+
                     //Get last block
                     $lastBlock = $chaindata->GetLastBlock();
 
@@ -108,19 +111,19 @@ if (isset($_REQUEST)) {
                         if ($lastBlock['block_hash'] == $blockMinedByPeer->previous) {
 
                             //Check if difficulty its ok
-                            $currentDifficulty = Blockchain::checkDifficulty($chaindata);
+                            $currentDifficulty = Blockchain::checkDifficulty($chaindata,null,$isTestNet);
 
                             if ($currentDifficulty[0] != $blockMinedByPeer->difficulty) {
                                 $return['status'] = true;
                                 $return['error'] = "4x00000000";
                                 $return['message'] = "Block difficulty hacked?";
 
-                                Tools::writeLog('GOSSIP_MINEDBLOCK -> Hacked difficulty? CurrentDifficulty; ' . $currentDifficulty[0] . ' BlockDifficulty; ' . $blockMinedByPeer->difficulty);
+                                Tools::writeLog('GOSSIP_MINEDBLOCK (NEW BLOCK) -> Hacked difficulty? CurrentDifficulty; ' . $currentDifficulty[0] . ' BlockDifficulty; ' . $blockMinedByPeer->difficulty);
 
                             } else {
                                 $return['message'] = "NEXT BLOCK";
 
-                                Tools::writeLog('GOSSIP_MINEDBLOCK -> Checking if new block is winner');
+                                Tools::writeLog('GOSSIP_MINEDBLOCK (NEW BLOCK) -> Checking if new block is winner');
 
                                 //Valid block to add in Blockchain
                                 $returnCode = Blockchain::isValidBlockMinedByPeer($chaindata,$lastBlock,$blockMinedByPeer);
@@ -143,17 +146,17 @@ if (isset($_REQUEST)) {
                             Tools::writeLog('GOSSIP_MINEDBLOCK -> Send me Same height but different BLOCK');
 
                             //Check if difficulty its ok
-                            $currentDifficulty = Blockchain::checkDifficulty($chaindata,($lastBlock['height']-1));
+                            $currentDifficulty = Blockchain::checkDifficulty($chaindata,($lastBlock['height']-1),$isTestNet);
 
                             if ($currentDifficulty[0] != $blockMinedByPeer->difficulty) {
                                 $return['status'] = true;
                                 $return['error'] = "4x00000000";
                                 $return['message'] = "Block difficulty hacked?";
 
-                                Tools::writeLog('GOSSIP_MINEDBLOCK -> Hacked difficulty? CurrentDifficulty; ' . $currentDifficulty[0] . ' BlockDifficulty; ' . $blockMinedByPeer->difficulty);
+                                Tools::writeLog('GOSSIP_MINEDBLOCK (SAME HEIGHT) -> Hacked difficulty? CurrentDifficulty; ' . $currentDifficulty[0] . ' BlockDifficulty; ' . $blockMinedByPeer->difficulty);
                             } else {
 
-                                Tools::writeLog('GOSSIP_MINEDBLOCK -> Checking if new block is winner');
+                                Tools::writeLog('GOSSIP_MINEDBLOCK (SAME HEIGHT) -> Checking if new block is winner');
 
                                 //Valid new block in same hiehgt to add in Blockchain
                                 $returnCode = Blockchain::isValidBlockMinedByPeerInSameHeight($chaindata,$lastBlock,$blockMinedByPeer);
@@ -184,9 +187,9 @@ if (isset($_REQUEST)) {
                                 //Propagate mined block to network
                                 Tools::sendBlockMinedToNetworkWithSubprocess($chaindata,$blockMinedByPeer);
 
-                                Tools::writeLog('GOSSIP_MINEDBLOCK -> Accepted block, we will announce it in the main process');
+                                Tools::writeLog('GOSSIP_MINEDBLOCK (SAME BLOCK) -> Accepted block, we will announce it in the main process');
                             } else {
-                                Tools::writeLog('GOSSIP_MINEDBLOCK -> Discard block, i announced it');
+                                Tools::writeLog('GOSSIP_MINEDBLOCK (SAME BLOCK) -> Discard block, i announced it');
                             }
 
                             $return['status'] = true;
@@ -254,7 +257,7 @@ if (isset($_REQUEST)) {
                     'p2p'           => $config['p2p'],
                     'syncing'       => $config['syncing'],
                     'dbversion'     => $config['dbversion'],
-                    'nodeversion'   => VERSION,
+                    'nodeversion'   => $config['node_version'],
                     'lastBlock'     => $chaindata->GetNextBlockNum()
                 );
             break;

@@ -83,7 +83,7 @@ if (count($argv) > 1) {
     echo "port          Set the port that the node will use     - REQUIRED".PHP_EOL;
     echo "peer-ip       Set an IP of a nearby node".PHP_EOL;
     echo "peer-port     Set the port of a nearby node".PHP_EOL;
-    echo "mine          Activate mining mode".PHP_EOL.PHP_EOL;
+    echo "miner         Activate mining mode".PHP_EOL.PHP_EOL;
 
     echo "Examples of use: ".PHP_EOL;
     echo "php client.php -u user -ip 0.0.0.0 -port 8080".PHP_EOL;
