@@ -65,14 +65,14 @@ For viewer node:
 |user   	|Set the node user name   	|
 |ip   	|Set the IP that the node will use   	|
 |port   	|Set the port that the node will use   	|
-|mine   	|Activate mining mode   	|
+|miner   	|Activate mining mode   	|
 |testnet   	|Connect to TESTNET network   	|
 
 Examples of use:
 ```
 php client.php -u USER1 -ip 0.0.0.0 -port 8080
-php client.php -u USER1 -ip 0.0.0.0 -port 8080 -mine
-php client.php -u USER1 -ip 0.0.0.0 -port 8080 -mine -testnet
+php client.php -u USER1 -ip 0.0.0.0 -port 8080 -miner
+php client.php -u USER1 -ip 0.0.0.0 -port 8080 -miner -testnet
 ```
 
 # Discord server

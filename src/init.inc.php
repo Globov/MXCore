@@ -42,6 +42,9 @@ include(__DIR__.'/Miner.php');
 include(__DIR__.'/GenesisBlock.php');
 include(__DIR__.'/Peer.php');
 
+//MXC Version
+define('VERSION','0.0.7');
+
 //Start capturing flush
 ob_start();
 

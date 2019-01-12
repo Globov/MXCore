@@ -71,7 +71,8 @@ class Wallet {
             if ($file == '.' || $file == '..')
                 continue;
 
-            $accountKeys = @unserialize(@file_get_contents($file));
+            $accountKeys = @unserialize(@file_get_contents(Tools::GetBaseDir().'data'.DIRECTORY_SEPARATOR.'wallets'.DIRECTORY_SEPARATOR.$file));
+
             if (is_array($accountKeys) && !empty($accountKeys)) {
                 $walletAccount = Wallet::GetWalletAddressFromPubKey($accountKeys['public']);
                 if ($walletAccount != null)
@@ -191,7 +192,7 @@ class Wallet {
         $lastBlockNum_Local = $chaindata->GetNextBlockNum();
 
         if ($lastBlockNum != $lastBlockNum_Local)
-            return ColorsCLI::$FG_RED."Error".ColorsCLI::$FG_WHITE." Blockchain it is not synchronized".PHP_EOL;
+            return "Error, Blockchain it is not synchronized";
 
         //Obtenemos lo que ha recibido el usuario en esta cartera
         $totalReceived = "0";
@@ -289,7 +290,7 @@ class Wallet {
 
         //Obtenemos lo que ha recibido el usuario en esta cartera
         $totalReceived = "0";
-        $totalSpend = "0";
+        $totalSend = "0";
 
         $totalReceived_tmp = $chaindata->db->query("SELECT amount FROM transactions WHERE wallet_to = '".$address."';");
         if (!empty($totalReceived_tmp)) {
@@ -299,21 +300,21 @@ class Wallet {
         }
 
         //Obtenemos lo que ha gastado el usuario (pendiente o no de tramitar)
-        $totalSpended_tmp = $chaindata->db->query("SELECT amount FROM transactions WHERE wallet_from = '".$address."';");
-        if (!empty($totalSpended_tmp)) {
-            while ($txnInfo = $totalSpended_tmp->fetch_array(MYSQLI_ASSOC)) {
-                $totalSpend = bcadd($totalSpend, $txnInfo['amount'], 8);
+        $totalSended_tmp = $chaindata->db->query("SELECT amount FROM transactions WHERE wallet_from = '".$address."';");
+        if (!empty($totalSended_tmp)) {
+            while ($txnInfo = $totalSended_tmp->fetch_array(MYSQLI_ASSOC)) {
+                $totalSend = bcadd($totalSend, $txnInfo['amount'], 8);
             }
         }
 
-        $totalSpendedPending_tmp = $chaindata->db->query("SELECT amount FROM transactions_pending WHERE wallet_from = '".$address."';");
-        if (!empty($totalSpendedPending_tmp)) {
-            while ($txnInfo = $totalSpendedPending_tmp->fetch_array(MYSQLI_ASSOC)) {
-                $totalSpend = bcadd($totalSpend, $txnInfo['amount'], 8);
+        $totalSendedPending_tmp = $chaindata->db->query("SELECT amount FROM transactions_pending WHERE wallet_from = '".$address."';");
+        if (!empty($totalSendedPending_tmp)) {
+            while ($txnInfo = $totalSendedPending_tmp->fetch_array(MYSQLI_ASSOC)) {
+                $totalSend = bcadd($totalSend, $txnInfo['amount'], 8);
             }
         }
 
-        return bcsub($totalReceived,$totalSpend,8);
+        return bcsub($totalReceived,$totalSend,8);
     }
 
     /**
@@ -329,6 +330,78 @@ class Wallet {
         } else {
             return null;
         }
+    }
+
+    /**
+     * Return number of transactions and total amount sended by wallet
+     *
+     * @param $wallet
+     * @param $isTestNet
+     *
+     * @return mixed
+     */
+    public static function GetSendedTransactionsCount($wallet,$isTestNet=false) {
+
+        //Instantiate DB
+        $chaindata = new DB();
+
+        //Check if node is synchronized
+        $lastBlockNum = BootstrapNode::GetLastBlockNum($chaindata,$isTestNet);
+        $lastBlockNum_Local = $chaindata->GetNextBlockNum();
+        if ($lastBlockNum != $lastBlockNum_Local)
+            return "Error, Blockchain it is not synchronized";
+
+        $totalSended = "0";
+        $totalTransactions = 0;
+
+        $totalSpended_tmp = $chaindata->db->query("SELECT amount FROM transactions WHERE wallet_from = '".$wallet."';");
+        if (!empty($totalSpended_tmp)) {
+            while ($txnInfo = $totalSpended_tmp->fetch_array(MYSQLI_ASSOC)) {
+                $totalSended = bcadd($totalSended, $txnInfo['amount'], 8);
+                $totalTransactions++;
+            }
+        }
+
+        return array($totalTransactions,$totalSended);
+    }
+
+    /**
+     * Return number of transactions and total amount pending to send by wallet
+     *
+     * @param $wallet
+     * @param $isTestNet
+     *
+     * @return mixed
+     */
+    public static function GetPendingSendedTransactionsCount($wallet,$isTestNet=false) {
+
+        //Instantiate DB
+        $chaindata = new DB();
+
+        //Check if node is synchronized
+        $lastBlockNum = BootstrapNode::GetLastBlockNum($chaindata,$isTestNet);
+        $lastBlockNum_Local = $chaindata->GetNextBlockNum();
+        if ($lastBlockNum != $lastBlockNum_Local)
+            return "Error, Blockchain it is not synchronized";
+
+        $totalPendingSended = "0";
+        $totalTransactions = 0;
+
+        $totalSendedPending_tmp = $chaindata->db->query("SELECT amount FROM transactions_pending WHERE wallet_from = '".$wallet."';");
+        if (!empty($totalSendedPending_tmp)) {
+            while ($txnInfo = $totalSendedPending_tmp->fetch_array(MYSQLI_ASSOC)) {
+                $totalPendingSended = bcadd($totalPendingSended, $txnInfo['amount'], 8);
+            }
+        }
+
+        $totalSendedPendingToSend_tmp = $chaindata->db->query("SELECT amount FROM transactions_pending_to_send WHERE wallet_from = '".$wallet."';");
+        if (!empty($totalSendedPendingToSend_tmp)) {
+            while ($txnInfo = $totalSendedPendingToSend_tmp->fetch_array(MYSQLI_ASSOC)) {
+                $totalPendingSended = bcadd($totalPendingSended, $txnInfo['amount'], 8);
+            }
+        }
+
+        return array($totalTransactions,$totalPendingSended);
     }
 
     /**
@@ -472,6 +545,85 @@ class Wallet {
         } else {
             $return_message = "Could not find the ".ColorsCLI::$FG_RED."public/private key".ColorsCLI::$FG_WHITE." of wallet ".ColorsCLI::$FG_GREEN.$wallet_from.ColorsCLI::$FG_WHITE.PHP_EOL;
             $return_message .= "Please check that in the directory ".ColorsCLI::$FG_CYAN.Tools::GetBaseDir().DIRECTORY_SEPARATOR."data".DIRECTORY_SEPARATOR."wallets".DIRECTORY_SEPARATOR.ColorsCLI::$FG_WHITE." there is the keystore of the wallet".PHP_EOL;
+            return $return_message;
+        }
+    }
+
+    public static function API_SendTransaction($wallet_from,$wallet_from_password,$wallet_to,$amount,$tx_fee,$isTestNet=false,$cli=true) {
+
+        //Instance the pointer to the chaindata
+        $chaindata = new DB();
+
+        //Comprobamos si estamos sincronizados o no
+        $lastBlockNum = BootstrapNode::GetLastBlockNum($chaindata,$isTestNet);
+        $lastBlockNum_Local = $chaindata->GetNextBlockNum();
+
+        if ($lastBlockNum != $lastBlockNum_Local)
+            return "Error, Blockchain it is not synchronized";
+
+        if (bccomp($amount ,"0.00000001",8) == -1)
+            return "Error, Minium to send 0.00000001";
+
+        if ($tx_fee == 3 && bccomp($amount ,"0.00001400",8) == -1)
+            return "Error, There is not enough balance in the account";
+
+        if ($tx_fee == 2 && bccomp($amount ,"0.00000900",8) == -1)
+            return "Error, There is not enough balance in the account";
+
+        if ($tx_fee == 1 && bccomp($amount ,"0.00000250",8) == -1)
+            return "Error, There is not enough balance in the account";
+
+        //Check if wallet from its coinbase
+        if ($wallet_from == "coinbase")
+            return "Error, Cannot use coinbase from API";
+        else
+            $wallet_from_info = self::GetWallet($wallet_from);
+
+        //Check if wallet to its coinbase
+        if ($wallet_to == "coinbase")
+            $wallet_to = self::GetWalletAddressFromPubKey(self::GetCoinbase()['public']);
+
+        // If have wallet from info
+        if ($wallet_from_info !== false) {
+            // Get current balance of wallet
+            $currentBalance = self::GetBalance($wallet_from,$isTestNet);
+
+            // If have balance
+            if (bccomp($currentBalance,$amount,8) == 0 || bccomp($currentBalance,$amount,8) == 1) {
+                if ($tx_fee == 3)
+                    $amount = bcsub($amount,"0.00001400",8);
+                else if ($tx_fee == 2)
+                    $amount = bcsub($amount,"0.00000900",8);
+                else if ($tx_fee == 1)
+                    $amount = bcsub($amount,"0.00000250",8);
+
+                //Make transaction and sign
+                $transaction = new Transaction($wallet_from_info["public"],$wallet_to,$amount,$wallet_from_info["private"],$wallet_from_password,$tx_fee);
+
+                // Check if transaction is valid
+                if ($transaction->isValid()) {
+
+                    //Instance the pointer to the chaindata
+                    $chaindata = new DB();
+
+                    //We add the pending transaction to send into our chaindata
+                    if ($chaindata->addPendingTransactionToSend($transaction->message(),$transaction)) {
+                        return $transaction->message();
+                    }
+                    else {
+                        return "Error, An error occurred while saving transaction to propagate";
+                    }
+                }
+                else {
+                    return "Error, An error occurred while trying to create the transaction. The wallet_from password may be incorrect";
+                }
+            }
+            else {
+                return "Error, There is not enough balance in the account";
+            }
+        }
+        else {
+            $return_message = "Could not find the public/private key of wallet ".$wallet_from.".";
             return $return_message;
         }
     }

@@ -166,8 +166,12 @@ class Blockchain {
             //Propagate mined block to network
             Tools::sendBlockMinedToNetworkWithSubprocess($chaindata,$blockMinedByPeer);
 
-            //AddBlock to blockchain
+            //Add Block to blockchain
              if ($chaindata->addBlock($numBlock,$blockMinedByPeer)) {
+
+                 if ($chaindata->GetConfig('isBootstrap') == 'on' && $chaindata->GetConfig('node_ip') == NODE_BOOTSTRAP)
+                     Tools::SendMessageToDiscord($numBlock,$blockMinedByPeer);
+
                  return "0x00000000";
              } else {
                  return "ERROR NO SE HA PODIDO AGREGAR".$numBlock;

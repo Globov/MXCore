@@ -239,21 +239,47 @@ class DB {
     }
 
     /**
+     * Get miner of block
+     *
+     * @param $hash
+     * @return mixed
+     */
+    public function GetMinerOfBlockByHash($hash) {
+        $minerTransaction = $this->db->query("SELECT * FROM transactions WHERE block_hash = '".$hash."' ORDER BY tx_fee ASC, timestamp DESC LIMIT 1;")->fetch_assoc();
+        if (!empty($minerTransaction))
+            return $minerTransaction['wallet_to'];
+        return null;
+    }
+
+    /**
      * Returns a block given a hash
      *
      * @param $hash
+     * @param $withTransactions
      * @return array
      */
-    public function GetBlockByHash($hash) {
+    public function GetBlockByHash($hash,$withTransactions=false) {
         $sql = "SELECT * FROM blocks WHERE block_hash = '".$hash."'";
         $info_block = $this->db->query($sql)->fetch_assoc();
         if (!empty($info_block)) {
 
-            $transactions_chaindata = $this->db->query("SELECT * FROM transactions WHERE block_hash = '".$info_block['block_hash']."' ORDER BY tx_fee ASC, timestamp DESC;");
             $transactions = array();
+
+            //Select only hashes of txns
+            $sql = "SELECT txn_hash FROM transactions WHERE block_hash = '".$info_block['block_hash']."' ORDER BY tx_fee ASC, timestamp DESC;";
+
+            //If want all transaction info, select all
+            if ($withTransactions)
+                $sql = "SELECT * FROM transactions WHERE block_hash = '".$info_block['block_hash']."' ORDER BY tx_fee ASC, timestamp DESC;";
+
+            //Get transactions
+            $transactions_chaindata = $this->db->query($sql);
             if (!empty($transactions_chaindata)) {
                 while ($transactionInfo = $transactions_chaindata->fetch_array(MYSQLI_ASSOC)) {
-                    $transactions[] = $transactionInfo;
+                    if ($withTransactions)
+                        $transactions[] = $transactionInfo;
+                    else
+                        $transactions[] = $transactionInfo['txn_hash'];
                 }
             }
 
@@ -274,7 +300,7 @@ class DB {
         $sql = "SELECT height FROM blocks WHERE block_hash = '".$hash."' LIMIT 1;";
         $info_block = $this->db->query($sql)->fetch_assoc();
         if (!empty($info_block))
-            return $info_block;
+            return $info_block['height'];
         return null;
     }
 
@@ -377,6 +403,34 @@ class DB {
     }
 
     /**
+     * Return count transactions in block
+     *
+     * @param $blockHash
+     * @return int
+     */
+    public function GetBlockTransactionsCountByHash($blockHash) {
+        $transactionsCount = $this->db->query("SELECT count(txn_hash) as countTransactions FROM transactions WHERE block_hash = '".$blockHash."';")->fetch_assoc();
+        if (!empty($transactionsCount)) {
+            return $transactionsCount['countTransactions'];
+        }
+        return 0;
+    }
+
+    /**
+     * Return count transactions in block
+     *
+     * @param $height
+     * @return int
+     */
+    public function GetBlockTransactionsCountByHeight($height) {
+        $transactionsCount = $this->db->query("SELECT count(txn_hash) as countTransactions FROM transactions WHERE block_hash = (SELECT block_hash FROM blocks WHERE height = ".$height.");")->fetch_assoc();
+        if (!empty($transactionsCount)) {
+            return $transactionsCount['countTransactions'];
+        }
+        return 0;
+    }
+
+    /**
      * Returns a block given a height
      *
      * @param $height
@@ -392,13 +446,21 @@ class DB {
 
             $transactions = array();
 
-            if ($withTransactions) {
-                $transactions_chaindata = $this->db->query("SELECT * FROM transactions WHERE block_hash = '".$info_block['block_hash']."' ORDER BY tx_fee ASC, timestamp DESC;");
+            //Select only hashes of txns
+            $sql = "SELECT txn_hash FROM transactions WHERE block_hash = '".$info_block['block_hash']."' ORDER BY tx_fee ASC, timestamp DESC;";
 
-                if (!empty($transactions_chaindata)) {
-                    while ($transactionInfo = $transactions_chaindata->fetch_array(MYSQLI_ASSOC)) {
+            //If want all transaction info, select all
+            if ($withTransactions)
+                $sql = "SELECT * FROM transactions WHERE block_hash = '".$info_block['block_hash']."' ORDER BY tx_fee ASC, timestamp DESC;";
+
+            //Get transactions
+            $transactions_chaindata = $this->db->query($sql);
+            if (!empty($transactions_chaindata)) {
+                while ($transactionInfo = $transactions_chaindata->fetch_array(MYSQLI_ASSOC)) {
+                    if ($withTransactions)
                         $transactions[] = $transactionInfo;
-                    }
+                    else
+                        $transactions[] = $transactionInfo['txn_hash'];
                 }
             }
 
@@ -407,6 +469,30 @@ class DB {
             return $info_block;
         }
         return null;
+    }
+
+    /**
+     * Add a pending transaction to the chaindata
+     *
+     * @param Object $transaction
+     * @return bool
+     */
+    public function addPendingTransactionObject($transaction) {
+        $into_tx_pending = $this->db->query("SELECT txn_hash FROM transactions_pending WHERE txn_hash = '".$transaction->hash."';")->fetch_assoc();
+        if (empty($into_tx_pending)) {
+
+            //Get current balance of WalletFrom and check if have money to send transaction
+            //This prevent hack transactions
+            $walletFromBalance = Wallet::GetBalanceWithChaindata($this,$transaction->wallet_from);
+
+            if ($walletFromBalance >= $transaction['amount']) {
+                $sql_update_transactions = "INSERT INTO transactions_pending (block_hash, txn_hash, wallet_from_key, wallet_from, wallet_to, amount, signature, tx_fee, timestamp) 
+                    VALUES ('','" . $transaction->txn_hash . "','" . $transaction->wallet_from_key . "','" . $transaction->wallet_from . "','" . $transaction->wallet_to . "','" . $transaction->amount . "','" . $transaction->signature . "','" . $transaction->tx_fee . "','" . $transaction->timestamp . "');";
+                $this->db->query($sql_update_transactions);
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -421,7 +507,7 @@ class DB {
 
             //Get current balance of WalletFrom and check if have money to send transaction
             //This prevent hack transactions
-            $walletFromBalance = Wallet::GetBalanceWithChaindata($this,$transaction->wallet_from);
+            $walletFromBalance = Wallet::GetBalanceWithChaindata($this,$transaction['wallet_from']);
 
             if ($walletFromBalance >= $transaction['amount']) {
                 $sql_update_transactions = "INSERT INTO transactions_pending (block_hash, txn_hash, wallet_from_key, wallet_from, wallet_to, amount, signature, tx_fee, timestamp) 
@@ -485,7 +571,7 @@ class DB {
      */
     public function addPendingTransactionsByPeer($transactionsByPeer) {
         foreach ($transactionsByPeer as $tx)
-            $this->addPendingTransaction($tx);
+            $this->addPendingTransactionObject($tx);
 
         return true;
     }
@@ -510,8 +596,9 @@ class DB {
 
             $sql_update_transactions = "INSERT INTO transactions_pending_to_send (block_hash, txn_hash, wallet_from_key, wallet_from, wallet_to, amount, signature, tx_fee, timestamp) 
                     VALUES ('','".$transaction->message()."','".$wallet_from_pubkey."','".$wallet_from."','".$transaction->to."','".$transaction->amount."','".$transaction->signature."','".$transaction->tx_fee."','".$transaction->timestamp."');";
-            $this->db->query($sql_update_transactions);
-            return true;
+
+            if ($this->db->query($sql_update_transactions))
+                return true;
         }
         return false;
     }
@@ -586,7 +673,7 @@ class DB {
 
             //SQL Insert Block
             $sql_insert_block = "INSERT INTO blocks (height,block_previous,block_hash,root_merkle,nonce,timestamp_start_miner,timestamp_end_miner,difficulty,version,info)
-            VALUES (".$blockNum.",'".$block_previous."','".$blockInfo->hash."','".$blockInfo->merkle."','".$blockInfo->nonce."','".$blockInfo->timestamp."','".$blockInfo->timestamp_end."','".$blockInfo->difficulty."','1','".$this->db->real_escape_string(@serialize($blockInfo->info))."');";
+            VALUES (".$blockNum.",'".$block_previous."','".$blockInfo->hash."','".$blockInfo->merkle."','".$blockInfo->nonce."','".$blockInfo->timestamp."','".$blockInfo->timestamp_end."','".$blockInfo->difficulty."','".$this->GetConfig('node_version')."','".$this->db->real_escape_string(@serialize($blockInfo->info))."');";
 
             if ($this->db->query($sql_insert_block)) {
 
@@ -669,7 +756,7 @@ class DB {
         if (empty($info_block_chaindata)) {
             //SQL Insert Block
             $sql_insert_block = "INSERT INTO blocks_pending_to_display (status,block_previous,block_hash,root_merkle,nonce,timestamp_start_miner,timestamp_end_miner,difficulty,version,info)
-            VALUES ('".$status."','".$minedBlock->previous."','".$minedBlock->hash."','".$minedBlock->merkle."','".$minedBlock->nonce."','".$minedBlock->timestamp."','".$minedBlock->timestamp_end."','".$minedBlock->difficulty."','".VERSION."','".$this->db->real_escape_string(@serialize($minedBlock->info))."');";
+            VALUES ('".$status."','".$minedBlock->previous."','".$minedBlock->hash."','".$minedBlock->merkle."','".$minedBlock->nonce."','".$minedBlock->timestamp."','".$minedBlock->timestamp_end."','".$minedBlock->difficulty."','".$this->GetConfig('node_version')."','".$this->db->real_escape_string(@serialize($minedBlock->info))."');";
 
             if ($this->db->query($sql_insert_block))
                 return true;
@@ -830,13 +917,21 @@ class DB {
 
                 $transactions = array();
 
-                //Check if want transactions on request
-                if ($withTransactions) {
-                    $transactions_chaindata = $this->db->query("SELECT * FROM transactions WHERE block_hash = '" . $blockInfo['block_hash'] . "' ORDER BY tx_fee ASC, timestamp DESC;");
-                    if (!empty($transactions_chaindata)) {
-                        while ($transactionInfo = $transactions_chaindata->fetch_array(MYSQLI_ASSOC)) {
+                //Select only hashes of txns
+                $sql = "SELECT txn_hash FROM transactions WHERE block_hash = '".$blockInfo['block_hash']."' ORDER BY tx_fee ASC, timestamp DESC;";
+
+                //If want all transaction info, select all
+                if ($withTransactions)
+                    $sql = "SELECT * FROM transactions WHERE block_hash = '".$blockInfo['block_hash']."' ORDER BY tx_fee ASC, timestamp DESC;";
+
+                //Get transactions
+                $transactions_chaindata = $this->db->query($sql);
+                if (!empty($transactions_chaindata)) {
+                    while ($transactionInfo = $transactions_chaindata->fetch_array(MYSQLI_ASSOC)) {
+                        if ($withTransactions)
                             $transactions[] = $transactionInfo;
-                        }
+                        else
+                            $transactions[] = $transactionInfo['txn_hash'];
                     }
                 }
 

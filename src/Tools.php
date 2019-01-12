@@ -179,6 +179,26 @@ class Tools {
     }
 
     /**
+     * Send message to discord using webhook
+     *
+     * @param $numBlock
+     * @param Block $blockMinedByPeer
+     */
+    public static function SendMessageToDiscord($numBlock,$blockMinedByPeer) {
+        if (defined('WEBHOOK_DISCORD')) {
+            $msg = "Block Found        height=**".$numBlock."**        nonce=**".$blockMinedByPeer->nonce."**        previous=**$blockMinedByPeer->previous**    hash=**$blockMinedByPeer->hash**";
+            $ch = curl_init(WEBHOOK_DISCORD);
+            curl_setopt( $ch, CURLOPT_POST, 1);
+            curl_setopt( $ch, CURLOPT_POSTFIELDS, json_encode(array('content'=>"$msg")));
+            curl_setopt( $ch, CURLOPT_FOLLOWLOCATION, 1);
+            curl_setopt( $ch, CURLOPT_HEADER, 0);
+            curl_setopt( $ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_exec($ch);
+            curl_close($ch);
+        }
+    }
+
+    /**
      * Clear TMP folder
      */
     public static function clearTmpFolder() {

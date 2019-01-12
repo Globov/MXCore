@@ -45,8 +45,10 @@ $miner = false;
 $hashrate = 'No info';
 $explorerURL = 'https://blockchain.mataxetos.es/block/height/';
 $isSyncing = false;
+$nodeVersion = 'No info';
 if ($nodeConfig != null) {
     $network = $nodeConfig['network'];
+    $nodeVersion = $nodeConfig['node_version'];
 
     if ($network == 'testnet')
         $explorerURL = 'https://testnet.mataxetos.es/block/height/';
@@ -84,7 +86,7 @@ $ageBlockMessage = Tools::getAge($ageBlock);
                 <div class="control">
                     <div class="tags has-addons">
                         <strong class="tag tag-success">Version</strong>
-                        <span class="tag is-light"><?= VERSION; ?></span>
+                        <span class="tag is-light"><?= $nodeVersion; ?></span>
                     </div>
                 </div>
                 <?php

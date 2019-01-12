@@ -27,9 +27,6 @@ define('PHP_RUN_COMMAND',               'php');
 define('DISPLAY_DEBUG',                 false);
 define('DISPLAY_DEBUG_LEVEL',           1);
 
-//MXC Version
-define('VERSION',                       '0.0.6');
-
 //OS INFO
 define('IS_WIN',                        (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') ? true:false);
 ?>

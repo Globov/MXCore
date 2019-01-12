@@ -26,5 +26,3 @@ tmp/db.update
 CONFIG.php
 bin/GENESIS_TESTNET.bat
 index_explorer.php
-api/index.php
-api/API_DOC.md
