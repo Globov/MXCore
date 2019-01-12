@@ -632,7 +632,8 @@ Creates new message call transaction
 params: [{
   "from": "VTxed481ddab0bc5acefbaa67a2f35f8839",
   "to": "VTx31b9ad4ac95a8f4d4ba7f4c5bb908e20",
-  "value": "1"
+  "to": "PASSWORD_WALLET_FROM",
+  "amount": "1"
 }]
 ```
 
