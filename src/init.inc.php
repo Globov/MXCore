@@ -43,7 +43,7 @@ include(__DIR__.'/GenesisBlock.php');
 include(__DIR__.'/Peer.php');
 
 //MXC Version
-define('VERSION','0.0.7');
+define('VERSION','0.0.8');
 
 //Start capturing flush
 ob_start();
