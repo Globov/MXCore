@@ -43,7 +43,9 @@ class PoW {
      */
     public static function findNonce($idMiner,$message,$difficulty,$startNonce,$incrementNonce) {
         $max_difficulty = "0000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
-        $nonce = $startNonce;
+
+        $nonce = "0";
+        $nonce = bcadd($nonce,strval($startNonce));
 
         //Save current time
         $lastLogTime = time();
@@ -127,7 +129,7 @@ class PoW {
             }
 
             //We increased the nonce to continue in the search to solve the problem
-            $nonce += $incrementNonce;
+            $nonce = bcadd($nonce,strval($incrementNonce));
 
         }
         return $nonce;
