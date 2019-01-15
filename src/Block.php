@@ -156,7 +156,7 @@ class Block {
         if (is_array($this->transactions) && !empty($this->transactions)) {
             //We go through all the transactions and add them to the block to be mined
             foreach ($this->transactions as $transaction) {
-                $data = $transaction->message();
+                $data .= $transaction->message();
             }
         }
 
@@ -259,7 +259,7 @@ class Block {
         $data = "";
         foreach ($this->transactions as $transaction) {
             if ($transaction->isValid())
-                $data = $transaction->message();
+                $data .= $transaction->message();
             else
                 return false;
         }
