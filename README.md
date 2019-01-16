@@ -34,9 +34,6 @@ Explorer MAINNET: https://blockchain.mataxetos.es/
 
 Explorer TESTNET: https://testnet.mataxetos.es/
 
-# Public Explorer MXCoin (TESTNET)
-https://testnet.mataxetos.es/
-
 # How run
 - Clone repository on root website folder
 - Create a MySQL database UTF8
@@ -85,6 +82,7 @@ Anyone is welcome to contribute to MXCoin!
 If you have a fix or code change, feel free to submit it as a pull request directly to the "master" branch.
 
 # Cryptocurrency under construction
+The cryptocurrency is still under development, subject to technical changes
 
 # Donations
 ETH: 0x33c6cea9136d30071c1b015cc9a2b4d1ad17848d
