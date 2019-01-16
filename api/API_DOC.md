@@ -24,6 +24,7 @@
       - [mxc_getBlockByHash](#mxc_getblockbyhash)
       - [mxc_getBlockByNumber](#mxc_getblockbynumber)
       - [mxc_getTransactionByHash](#mxc_gettransactionbyhash)
+      - [mxc_sign](#mxc_sign)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -77,6 +78,7 @@ domain:6969
 * [mxc_getBlockByHash](#mxc_getblockbyhash)
 * [mxc_getBlockByNumber](#mxc_getblockbynumber)
 * [mxc_getTransactionByHash](#mxc_gettransactionbyhash)
+* [mxc_sign](#mxc_sign)
 
 ## JSON RPC API Reference
 
@@ -627,12 +629,15 @@ Creates new message call transaction
   - `to`: `STRING` - The address the transaction is directed to.
   - `password`: `STRING` - The password address from.
   - `amount`: `INTEGER` - Integer of the value sent with this transaction
+  - `fee`: `STRING` - Fee of transaction - Accepted values `high` `medium` `low`
 
 ```js
 params: [{
   "from": "VTxed481ddab0bc5acefbaa67a2f35f8839",
   "to": "VTx31b9ad4ac95a8f4d4ba7f4c5bb908e20",
-  "value": "1"
+  "password": "PASSWORD_WALLET_FROM",
+  "amount": "1",
+  "fee": "high"
 }]
 ```
 
@@ -801,6 +806,45 @@ http://NODE_IP:NODE_PORT/api/?id=20&method=mxc_getTransactionByHash&hash=7378fe8
     "fee":"0.00000900",
     "amount":"429",
     "signature":"ILPjd7CjCJj36NfoCg2ojY8gZyXSUKYCy3iiKn1H52WT+TZyMmgIwrVZ+BKNv+qQ1Qo+dmA46wi5X72L9jthKFnhbfRs/7xpQP8W9sglbrIRBhTZ0HqB70R6yg5flHgTAIPKKuO7QKW+5PYiQKaSsSztMaeryMe619BRyMeQI7/qRScc/AZUzshQdDqedjkb+2eiVNdQzvNn0oKQ5A0kt7Txd117vRXYxkkdcHl7WMTnBiwlyM0luTBSe6hGZRXD5MqOSj8p5zGKveIPzyxdbwX77e8KB/bLNuw8rGaZwdg2jYj9VjK1ILaiRsyhWi6HWvjLCpECY0QNlynbO4MDBw=="
+  }
+}
+```
+
+#### mxc_sign
+
+Check if cant sign this wallet with this password
+
+
+##### Parameters
+
+1. `STRING` - Wallet to check sign
+2. `STRING` - Password of wallet
+
+```js
+params: [
+   "wallet":"VTx00000000000000000000000000000000",
+   "password":"EXAMPLE_PASSWORD"
+]
+```
+
+##### Returns
+
+`String` - Message informing if it was possible to sign
+
+##### Example
+```js
+// Request
+curl -X POST --data '{"jsonrpc":"2.0","method":"mxc_sign","params":["wallet":"VTx00000000000000000000000000000000","password":"EXAMPLE_PASSWORD"],"id":20}'
+
+//HTTP Request
+http://NODE_IP:NODE_PORT/api/?id=20&method=mxc_sign&wallet=VTx00000000000000000000000000000000&password=EXAMPLE_PASSWORD
+
+// Result
+{
+  "jsonrpc":"2.0",
+  "id":20,
+  "result":{
+    "ILPjd7CjCJj36NfoCg2ojY8gZyXSUKYCy3iiKn1H52WT+TZyMmgIwrVZ+BKNv+qQ1Qo+dmA46wi5X72L9jthKFnhbfRs/7xpQP8W9sglbrIRBhTZ0HqB70R6yg5flHgTAIPKKuO7QKW+5PYiQKaSsSztMaeryMe619BRyMeQI7/qRScc/AZUzshQdDqedjkb+2eiVNdQzvNn0oKQ5A0kt7Txd117vRXYxkkdcHl7WMTnBiwlyM0luTBSe6hGZRXD5MqOSj8p5zGKveIPzyxdbwX77e8KB/bLNuw8rGaZwdg2jYj9VjK1ILaiRsyhWi6HWvjLCpECY0QNlynbO4MDBw=="
   }
 }
 ```

@@ -162,11 +162,11 @@ class DB {
         $port = $tmp[1];
 
         if (strlen($ip) > 0 && strlen($port) > 0) {
-            $currentConfig = $this->db->query("SELECT id FROM peers WHERE ip = '".$ip."' AND port = '".$port."';")->fetch_assoc();
+            $currentInfoPeer = $this->db->query("SELECT id FROM peers WHERE ip = '".$ip."' AND port = '".$port."';")->fetch_assoc();
 
             //Ban peer 10min
             $blackListTime = time() + 10 * 60;
-            if (empty($currentConfig)) {
+            if (empty($currentInfoPeer)) {
                 $this->db->query("INSERT INTO peers (ip,port,blacklist) VALUES ('".$ip."', '".$port."', '".$blackListTime."');");
             }
             else {
@@ -622,24 +622,6 @@ class DB {
     }
 
     /**
-     * Delete block from temp table
-     *
-     * @param $blockHash
-     */
-    public function removeBlockPendingByPeers($blockHash) {
-        $this->db->query("DELETE FROM blocks_pending_to_display WHERE block_previous='".$blockHash."';");
-    }
-
-    /**
-     * Delete block from temp table
-     *
-     * @param $blockHash
-     */
-    public function RemoveBlockToDisplay($blockHash) {
-        $this->db->query("DELETE FROM blocks_pending_to_display WHERE block_hash='".$blockHash."';");
-    }
-
-    /**
      * Return array with all pending transactions to send
      *
      * @return array
@@ -733,33 +715,8 @@ class DB {
                     }
                 }
 
-                //Remove block from tmp table
-                $this->removeBlockPendingByPeers($blockInfo['block_previous']);
-
                 return true;
             }
-        }
-        return false;
-    }
-
-    /**
-     * Add a block mined by a peer
-     * this block will be added from the main process
-     *
-     * @param Block $minedBlock
-     * @param string $status
-     * @return bool
-     */
-    public function AddBlockToDisplay($minedBlock,$status) {
-
-        $info_block_chaindata = $this->db->query("SELECT block_hash FROM blocks_pending_to_display WHERE block_hash = '".$minedBlock->hash."';")->fetch_assoc();
-        if (empty($info_block_chaindata)) {
-            //SQL Insert Block
-            $sql_insert_block = "INSERT INTO blocks_pending_to_display (status,block_previous,block_hash,root_merkle,nonce,timestamp_start_miner,timestamp_end_miner,difficulty,version,info)
-            VALUES ('".$status."','".$minedBlock->previous."','".$minedBlock->hash."','".$minedBlock->merkle."','".$minedBlock->nonce."','".$minedBlock->timestamp."','".$minedBlock->timestamp_end."','".$minedBlock->difficulty."','".$this->GetConfig('node_version')."','".$this->db->real_escape_string(@serialize($minedBlock->info))."');";
-
-            if ($this->db->query($sql_insert_block))
-                return true;
         }
         return false;
     }
@@ -784,19 +741,6 @@ class DB {
                     return true;
                 }
             }
-        }
-        return false;
-    }
-
-    /**
-     * Return array of mined blocks by peers
-     *
-     * @return bool|mixed
-     */
-    public function GetPeersMinedBlocks() {
-        $info_mined_blocks_by_peer = $this->db->query("SELECT previous_hash, block FROM mined_blocks_by_peers WHERE previous_hash = '';")->fetch_assoc();
-        if (!empty($info_mined_blocks_by_peer)) {
-            return $info_mined_blocks_by_peer;
         }
         return false;
     }
@@ -840,14 +784,58 @@ class DB {
     }
 
     /**
+     * Add a block mined by a peer
+     * this block will be added from the main process
+     *
+     * @param Block $minedBlock
+     * @param string $status
+     * @return bool
+     */
+    public function AddBlockToDisplay($minedBlock,$status) {
+
+        $info_block_chaindata = $this->db->query("SELECT block_hash FROM blocks_pending_to_display WHERE block_hash = '".$minedBlock->hash."';")->fetch_assoc();
+        if (empty($info_block_chaindata)) {
+            //SQL Insert Block
+            $sql_insert_block = "INSERT INTO blocks_pending_to_display (status,block_previous,block_hash,root_merkle,nonce,timestamp_start_miner,timestamp_end_miner,difficulty,version,info)
+            VALUES ('".$status."','".$minedBlock->previous."','".$minedBlock->hash."','".$minedBlock->merkle."','".$minedBlock->nonce."','".$minedBlock->timestamp."','".$minedBlock->timestamp_end."','".$minedBlock->difficulty."','".$this->GetConfig('node_version')."','".$this->db->real_escape_string(@serialize($minedBlock->info))."');";
+
+            if ($this->db->query($sql_insert_block))
+                return true;
+        }
+        return false;
+    }
+
+    /**
      * Return array of mined blocks by peers
      *
      * @return array
      */
-    public function GetBlockPendingByPeer() {
+    public function GetBlockPendingToDisplay() {
         $sql = "SELECT * FROM blocks_pending_to_display ORDER BY height ASC LIMIT 1";
         $firstBlockInDisplayTable = $this->db->query($sql)->fetch_assoc();
         return $firstBlockInDisplayTable;
+    }
+
+    /**
+     * Delete block from temp table
+     *
+     * @param $blockHash
+     */
+    public function RemoveBlockToDisplay($blockHash) {
+        $this->db->query("DELETE FROM blocks_pending_to_display WHERE block_hash='".$blockHash."';");
+    }
+
+    /**
+     * Return array of mined blocks by peers by hash param
+     *
+     * @param $hash
+     *
+     * @return array
+     */
+    public function GetBlockPendingToDisplayByHash($hash) {
+        $sql = "SELECT * FROM blocks_pending_to_display WHERE block_hash = '".$hash."'ORDER BY height ASC LIMIT 1";
+        $blockPendingByPeer = $this->db->query($sql)->fetch_assoc();
+        return $blockPendingByPeer;
     }
 
     /**

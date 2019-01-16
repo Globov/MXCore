@@ -42,7 +42,6 @@ class Gossip {
     private $make_genesis;
     private $bootstrap_node;
     private $connected_to_bootstrap;
-    private $p2p_enabled;
     private $openned_ports;
 
     private $loop_x5 = 0;
@@ -58,10 +57,9 @@ class Gossip {
      * @param bool      $enable_mine
      * @param bool      $make_genesis_block
      * @param bool      $bootstrap_node
-     * @param bool      $p2p_enabled
      * @param bool      $isTestNet
      */
-    public function __construct($db, $name, $ip, $port, $enable_mine, $make_genesis_block=false, $bootstrap_node = false, $p2p_enabled = true, $isTestNet=false)
+    public function __construct($db, $name, $ip, $port, $enable_mine, $make_genesis_block=false, $bootstrap_node = false, $isTestNet=false)
     {
         //Clear screen
         Display::ClearScreen();
@@ -74,7 +72,6 @@ class Gossip {
 
         $this->make_genesis = $make_genesis_block;
         $this->bootstrap_node = $bootstrap_node;
-        $this->p2p_enabled = $p2p_enabled;
         $this->isTestNet = $isTestNet;
         $this->enable_mine = $enable_mine;
 
@@ -101,12 +98,6 @@ class Gossip {
             $db->SetConfig('isBootstrap','on');
         else
             $db->SetConfig('isBootstrap','off');
-
-        //Set p2p config
-        if ($this->p2p_enabled)
-            $db->SetConfig('p2p','on');
-        else
-            $db->SetConfig('p2p','off');
 
         //Set default hashrate to 0
         $db->SetConfig('hashrate','0');
@@ -196,8 +187,8 @@ class Gossip {
             if ($this->_addBootstrapNode()) {
                 $this->connected_to_bootstrap = true;
 
-                //If we have activated p2p mode (by default it is activated) and we do not have open ports, we can not continue
-                if ($this->p2p_enabled && !$this->openned_ports) {
+                //If we do not have open ports, we can not continue
+                if (!$this->openned_ports) {
                     Display::_error("Impossible to establish a P2P connection");
                     Display::_error("Check that it is accessible from the internet: %Y%http://".$this->ip.":".$this->port);
                     if (IS_WIN)
@@ -494,7 +485,7 @@ class Gossip {
     public function CheckIfNeedShowNewBlocks() {
 
         //Get next block by last hash
-        $blockPending = $this->chaindata->GetBlockPendingByPeer();
+        $blockPending = $this->chaindata->GetBlockPendingToDisplay();
         if (is_array($blockPending) && !empty($blockPending)) {
 
             $numBlock = $this->chaindata->GetNextBlockNum();
@@ -758,19 +749,23 @@ class Gossip {
 
                     //Check If i found new block
                     if (@file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_NEW_BLOCK)) {
+
+                        /** @var Block $blockMined */
                         $blockMined = Tools::objectToObject(@unserialize(@file_get_contents(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_NEW_BLOCK)),'Block');
 
                         //Get next block height
                         $nextHeight = $this->chaindata->GetNextBlockNum();
 
                         //Check if block mined is valid
-                        if ($blockMined->isValid()) {
+                        if ($blockMined->isValid($nextHeight,$this->isTestNet)) {
                             if ($blockMined->isValidReward($nextHeight,$this->isTestNet)) {
                                 //Displau new block mined
                                 Display::NewBlockMined($blockMined);
 
                                 //Propagate block on network
                                 Tools::sendBlockMinedToNetworkWithSubprocess($this->chaindata,$blockMined);
+
+                                Tools::writeLog('MINER (MINED NEW BLOCK)');
 
                                 //Add this block on local blockchain
                                 $this->chaindata->addBlock($this->chaindata->GetNextBlockNum(),$blockMined);

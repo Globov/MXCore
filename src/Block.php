@@ -146,18 +146,31 @@ class Block {
      * If it is not valid, it will continue to undermine
      *
      * @param int $idMiner
+     * @param int $height
+     * @param bool $isTestnet
      */
-    public function mine($idMiner) {
+    public function mine($idMiner,$height,$isTestnet) {
 
         $this->timestamp = Tools::GetGlobalTime();
 
         //We prepare the transactions that will go in the block
         $data = "";
-        if (is_array($this->transactions) && !empty($this->transactions)) {
-            //We go through all the transactions and add them to the block to be mined
+
+        //HARDFORK Forgotten transactions
+        // See github.com/MXCCoin/MXCore/pull/19/commits/c16af51fae5fdb24c2e135064bb4fc73e965b0a0
+        $hardFork_ForgottenTransactions = ($isTestnet) ? 18225:11800;
+        if ($height >= $hardFork_ForgottenTransactions) {
+
+            //Add all transactions to make hash block
             foreach ($this->transactions as $transaction) {
-                $data = $transaction->message();
+                if ($transaction->isValid())
+                    $data .= $transaction->message();
             }
+        }
+        //Before Hardfork Forgotten transaction
+        else {
+            //Only need last transaction to make hash block
+            $data = $this->transactions[count($this->transactions) - 1]->message();
         }
 
         //We add the hash of the previous block
@@ -250,23 +263,37 @@ class Block {
      * Check if all transactions in the block are valid
      * Check if the nonce corresponds to the content of all transactions + hash of the previous block
      *
+     * @param $height
+     * @param $isTestnet
+     *
      * @return bool
      */
-    public function isValid() {
+    public function isValid($height,$isTestnet) {
 
-        //Display::_printer("isValid()");
-
+        //Define data to check
         $data = "";
-        foreach ($this->transactions as $transaction) {
-            if ($transaction->isValid())
-                $data = $transaction->message();
-            else
-                return false;
+
+        //HARDFORK Forgotten transactions
+        // See github.com/MXCCoin/MXCore/pull/19/commits/c16af51fae5fdb24c2e135064bb4fc73e965b0a0
+        $hardFork_ForgottenTransactions = ($isTestnet) ? 18225:11800;
+        if ($height >= $hardFork_ForgottenTransactions) {
+
+            //Add all transactions to make hash block
+            foreach ($this->transactions as $transaction) {
+                if ($transaction->isValid())
+                    $data .= $transaction->message();
+                else
+                    return false;
+            }
+        }
+        //Before Hardfork Forgotten transaction
+        else {
+            //Only need last transaction
+            $data = $this->transactions[count($this->transactions)-1]->message();
         }
 
+        //Add previous block
         $data .= $this->previous;
-
-        //Display::_printer("data: " . $data);
 
         return PoW::isValidNonce($data,$this->nonce,$this->difficulty, $this->info['max_difficulty']);
     }

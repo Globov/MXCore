@@ -58,6 +58,24 @@ class Wallet {
     }
 
     /**
+     * Load or create new wallet
+     *
+     * @param $account
+     * @param $password
+     * @return array|mixed
+     */
+    public static function Load($account) {
+
+        $wallet_file = Tools::GetBaseDir().DIRECTORY_SEPARATOR."data".DIRECTORY_SEPARATOR."wallets".DIRECTORY_SEPARATOR.$account.".dat";
+
+        //If the wallet exists, we load it
+        if (strlen($account) > 0 && @file_exists($wallet_file)) {
+            return @unserialize(@file_get_contents($wallet_file));
+        }
+        return null;
+    }
+
+    /**
      * Get all wallets
      *
      * @return bool|mixed

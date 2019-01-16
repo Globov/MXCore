@@ -267,7 +267,6 @@ if ($dbversion == 5) {
 
 if ($dbversion == 6) {
 
-    //Create new tmp table for blocks
     $db->db->query("ALTER TABLE `blocks` MODIFY COLUMN `nonce` varchar(200) NOT NULL AFTER `root_merkle`;");
     $db->db->query("ALTER TABLE `blocks_pending_to_display` MODIFY COLUMN `nonce` varchar(200) NOT NULL AFTER `root_merkle`;");
 
@@ -276,6 +275,21 @@ if ($dbversion == 6) {
     //Increment version to next stage
     $dbversion++;
 }
+
+if ($dbversion == 7) {
+
+    $db->db->query('
+    ALTER TABLE `blocks`
+    DROP PRIMARY KEY,
+    ADD PRIMARY KEY (`height`, `block_hash`);
+    ');
+
+    Display::_printer("Updating DB Schema #".$dbversion);
+
+    //Increment version to next stage
+    $dbversion++;
+}
+
 
 // update dbversion
 if ($dbversion != $_CONFIG['dbversion']) {

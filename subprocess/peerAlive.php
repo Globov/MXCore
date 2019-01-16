@@ -95,13 +95,13 @@ if ($argv[1] == -1) {
 
     $response = null;
     if ($peerIP == NODE_BOOTSTRAP) {
-        $response = Tools::postContent('https://'.NODE_BOOTSTRAP.'/gossip.php', $infoToSend,10);
+        $response = Tools::postContent('https://'.NODE_BOOTSTRAP.'/gossip.php', $infoToSend,60);
     }
     else if ($peerIP == NODE_BOOTSTRAP_TESTNET) {
-        $response = Tools::postContent('https://'.NODE_BOOTSTRAP_TESTNET.'/gossip.php', $infoToSend,10);
+        $response = Tools::postContent('https://'.NODE_BOOTSTRAP_TESTNET.'/gossip.php', $infoToSend,60);
     }
     else {
-        $response = Tools::postContent('http://' . $peerIP . ':' . $peerPORT . '/gossip.php', $infoToSend,10);
+        $response = Tools::postContent('http://' . $peerIP . ':' . $peerPORT . '/gossip.php', $infoToSend,60);
     }
 
     //Check if response as ok
@@ -128,7 +128,7 @@ if ($argv[1] == -1) {
     }
 
     if ($response == null) {
-        $chaindata->removePeer($peerIP,$peerPORT);
+        $chaindata->addPeerToBlackList($peerIP.':'.$peerPORT);
     }
 }
 die();

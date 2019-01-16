@@ -76,36 +76,13 @@ if ($blockMined != null && is_object($blockMined)) {
     );
 
     if ($peerIP == NODE_BOOTSTRAP) {
-        $response = Tools::postContent('https://'.NODE_BOOTSTRAP.'/gossip.php', $infoToSend,60);
+        Tools::postContent('https://'.NODE_BOOTSTRAP.'/gossip.php', $infoToSend,60);
     }
     else if ($peerIP == NODE_BOOTSTRAP_TESTNET) {
-        $response = Tools::postContent('https://'.NODE_BOOTSTRAP_TESTNET.'/gossip.php', $infoToSend,60);
+        Tools::postContent('https://'.NODE_BOOTSTRAP_TESTNET.'/gossip.php', $infoToSend,60);
     }
     else {
-        $response = Tools::postContent('http://' . $peerIP . ':' . $peerPORT . '/gossip.php', $infoToSend,60);
-    }
-
-    $retryConnection = false;
-
-    if (!isset($response->status))
-        $retryConnection = true;
-
-    //Retry propagation block
-    if ($retryConnection && $numRetrys <= 5) {
-
-        //Tools::writeLog('Retry propagation ('.$peerIP.':'.$peerPORT.')');
-
-        //Write log
-        Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR."log","Propagation #".$peerIP.":".$peerPORT." retry - error: " . print_r($response,true));
-
-        $params = array(
-            $peerIP,
-            $peerPORT,
-            ($numRetrys+1)
-        );
-
-        //Retry propagation
-        Subprocess::newProcess(Tools::GetBaseDir()."subprocess".DIRECTORY_SEPARATOR,'propagate',$params,$id);
+        Tools::postContent('http://' . $peerIP . ':' . $peerPORT . '/gossip.php', $infoToSend,60);
     }
 }
 die();

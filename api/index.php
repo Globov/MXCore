@@ -44,6 +44,7 @@ include('../src/Miner.php');
 
 date_default_timezone_set("UTC");
 
+header('Access-Control-Allow-Origin: *');
 header('Content-Type: application/json');
 
 //Get Input steam data
@@ -58,7 +59,7 @@ if ($data != null) {
 } else {
     $id = (isset($_REQUEST['id'])) ? $_REQUEST['id']:null;
     $method = (isset($_REQUEST['method'])) ? $_REQUEST['method']:'';
-    $params = (isset($_POST['params'])) ? json_decode($_POST['params']):$_GET;
+    $params = (isset($_POST['params'])) ? $_POST['params']:$_GET;
 }
 
 //Instantiate response array JSON-RPC
@@ -183,9 +184,9 @@ if ($id != null) {
 
                         $infoNewWallet = Wallet::LoadOrCreate('',$params['password']);
                         if (is_array($infoNewWallet) && !empty($infoNewWallet)) {
-                            $infoNewWallet[] = Wallet::GetWalletAddressFromPubKey($infoNewWallet['public']);
+                            $infoNewWallet['address'] = Wallet::GetWalletAddressFromPubKey($infoNewWallet['public']);
 
-                            $response_jsonrpc['result'] = $infoNewWallet;
+                            $response_jsonrpc['result'] = serialize($infoNewWallet);
                         }
                     }
                 break;
@@ -466,6 +467,49 @@ if ($id != null) {
                                 'amount'            => $transaction['amount'],
                                 'signature'         => $transaction['signature']
                             );
+                        }
+                    }
+                break;
+
+                case 'mxc_sign':
+                    if (
+                        (!isset($params['wallet']) || strlen($params['wallet']) == 0) ||
+                        (!isset($params['password']) || strlen($params['password']) == 0)
+                    ) {
+                        $response_jsonrpc['error'] = array(
+                            'code'    => -32602,
+                            'message' => 'Invalid params'
+                        );
+                    } else {
+                        //Check if have wallet
+                        if (strlen($params['wallet']) < 35) {
+                            $response_jsonrpc['error'] = array(
+                                'code'    => -32602,
+                                'message' => 'Invalid params'
+                            );
+                        } else {
+                            $infoWallet = Wallet::Load($params['wallet']);
+
+                            if (!is_array($infoWallet) || empty($infoWallet)) {
+                                $response_jsonrpc['error'] = array(
+                                    'code'    => -32603,
+                                    'message' => 'Internal error'
+                                );
+                            }
+                            else {
+
+                                if ($params['password'] == 'null')
+                                    $params['password'] = '';
+
+                                if ($sign = Pki::encrypt('', $infoWallet['private'],$params['password'])) {
+                                    $response_jsonrpc['result'] = $sign;
+                                } else {
+                                    $response_jsonrpc['error'] = array(
+                                        'code'    => 100,
+                                        'message' => "Error, Can't sign with this password"
+                                    );
+                                }
+                            }
                         }
                     }
                 break;

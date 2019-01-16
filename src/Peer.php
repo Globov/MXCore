@@ -39,6 +39,10 @@ class Peer {
         $blocksSynced = 0;
         $blockSynced = null;
         $transactionsSynced = null;
+
+        //Check if node is connected on testnet or mainnet
+        $isTestnet = ($gossip->chaindata->GetNetwork() == "testnet") ? true:false;
+
         if (count($nextBlocksToSyncFromPeer) > 0) {
             foreach ($nextBlocksToSyncFromPeer as $object) {
 
@@ -86,7 +90,7 @@ class Peer {
                 if ($lastBlock['block_hash'] == $object->block_previous) {
 
                     //If the block is valid
-                    if ($blockToImport->isValid()) {
+                    if ($blockToImport->isValid($object->height,$isTestnet)) {
 
                         //Check if rewarded transaction is valid, prevent hack money
                         if ($blockToImport->isValidReward($object->height,$gossip->isTestNet)) {

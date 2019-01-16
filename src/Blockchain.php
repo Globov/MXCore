@@ -144,8 +144,12 @@ class Blockchain {
             return "0x00000003";
         }
 
+        //Get next block height
+        $heightNewBlock = $chaindata->GetNextBlockNum();
+        $isTestnet = ($chaindata->GetNetwork() == "testnet") ? true:false;
+
         //If the block is valid
-        if (!$blockMinedByPeer->isValid()) {
+        if (!$blockMinedByPeer->isValid($heightNewBlock,$isTestnet)) {
             $chaindata->AddBlockToDisplay($blockMinedByPeer,"0x00000002");
             return "0x00000002";
         }
@@ -154,28 +158,34 @@ class Blockchain {
         if ($chaindata->GetNetwork() == "testnet")
             $isTestnet = true;
 
-        //Get next block height
-        $numBlock = $chaindata->GetNextBlockNum();
-
         //Check if rewarded transaction is valid, prevent hack money
-        if ($blockMinedByPeer->isValidReward($numBlock,$isTestnet)) {
+        if ($blockMinedByPeer->isValidReward($heightNewBlock,$isTestnet)) {
 
-            //Add this block in pending block (DISPLAY)
-            $chaindata->AddBlockToDisplay($blockMinedByPeer,"0x00000000");
+            //Check if block is waiting to display
+            $blockPendingToDisplay = $chaindata->GetBlockPendingToDisplayByHash($blockMinedByPeer->hash);
+            if (empty($blockPendingToDisplay)) {
 
-            //Propagate mined block to network
-            Tools::sendBlockMinedToNetworkWithSubprocess($chaindata,$blockMinedByPeer);
+                //Propagate mined block to network
+                Tools::sendBlockMinedToNetworkWithSubprocess($chaindata,$blockMinedByPeer);
 
-            //Add Block to blockchain
-             if ($chaindata->addBlock($numBlock,$blockMinedByPeer)) {
+                //Add this block in pending block (DISPLAY)
+                $chaindata->AddBlockToDisplay($blockMinedByPeer,"0x00000000");
 
-                 if ($chaindata->GetConfig('isBootstrap') == 'on' && $chaindata->GetConfig('node_ip') == NODE_BOOTSTRAP)
-                     Tools::SendMessageToDiscord($numBlock,$blockMinedByPeer);
+                //Add Block to blockchain
+                if ($chaindata->addBlock($heightNewBlock,$blockMinedByPeer)) {
 
-                 return "0x00000000";
-             } else {
-                 return "ERROR NO SE HA PODIDO AGREGAR".$numBlock;
-             }
+                    if ($chaindata->GetConfig('isBootstrap') == 'on' && $chaindata->GetConfig('node_ip') == NODE_BOOTSTRAP)
+                        Tools::SendMessageToDiscord($heightNewBlock,$blockMinedByPeer);
+
+                    return "0x00000000";
+
+                } else {
+                    return "Error, can't add block".$heightNewBlock;
+                }
+
+            } else {
+                return "Block added previously, reject block".$heightNewBlock;
+            }
         } else {
             $chaindata->AddBlockToDisplay($blockMinedByPeer,"0x00000001");
             return "0x00000001";
@@ -221,8 +231,11 @@ class Blockchain {
         if ($blockMinedByPeer == null)
             return "0x00000004";
 
+        //Check if node is connected on testnet or mainnet
+        $isTestnet = ($chaindata->GetNetwork() == "testnet") ? true:false;
+
         //Check if new block is valid
-        if (!$blockMinedByPeer->isValid()) {
+        if (!$blockMinedByPeer->isValid($lastBlock['height'],$isTestnet)) {
             $chaindata->AddBlockToDisplay($blockMinedByPeer,"1x00000002");
             return "0x00000002";
         }
@@ -240,11 +253,6 @@ class Blockchain {
 
         if ($acceptNewBlock)
             Tools::writeLog('ACCEPTED NEW BLOC');
-
-        //Check if node is on testnet
-        $isTestnet = false;
-        if ($chaindata->GetNetwork() == "testnet")
-            $isTestnet = true;
 
         //Check if rewarded transaction is valid, prevent hack money
         if ($blockMinedByPeer->isValidReward($lastBlock['height'],$isTestnet)) {
