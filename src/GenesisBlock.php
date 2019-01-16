@@ -142,8 +142,11 @@ class GenesisBlock {
             $infoBlock
         );
 
+        //Check if node is connected on testnet or mainnet
+        $isTestnet = ($chaindata->GetNetwork() == "testnet") ? true:false;
+
         //We check if the received block is valid
-        if ($genesis_block->isValid()) {
+        if ($genesis_block->isValid(0,$isTestnet)) {
             //We add the GENESIS block to the local blockchain
             $chaindata->addBlock(0,$genesis_block);
             return true;

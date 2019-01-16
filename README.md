@@ -22,14 +22,17 @@ PHP cryptocurrency
 - ~~- Migrate form SQLite to MySQL~~
 - ~~- Add Merkle Tree~~
 - ~~- Improve Explorer~~
-- Make MX Console Client
+- ~~- API JSON-RPC / HTTP~~
 - ~~- Make testnet~~
 - ~~- Multithread~~
+- CLI Wallet
+- GUI Wallet
 - Add version system to make hardforks
   
-# Public Explorer MXCoin (MAINNET)
+# Links
+Explorer MAINNET: https://blockchain.mataxetos.es/
 
-https://blockchain.mataxetos.es/
+Explorer TESTNET: https://testnet.mataxetos.es/
 
 # Public Explorer MXCoin (TESTNET)
 https://testnet.mataxetos.es/

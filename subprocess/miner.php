@@ -80,7 +80,11 @@ Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE
 
 $chaindata = new DB();
 $genesisBlock = $chaindata->GetGenesisBlock();
+
 $lastBlock = $chaindata->GetLastBlock();
+
+//Check if node is connected on testnet or mainnet
+$isTestnet = ($chaindata->GetNetwork() == "testnet") ? true:false;
 
 if (@file_exists(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_STOP_MINING)) {
     //Delete "pid" file
@@ -105,7 +109,7 @@ $transactions = @unserialize(@file_get_contents(Tools::GetBaseDir().'tmp'.DIRECT
 $blockMined = new Block($previous_hash,$difficulty,$transactions,$lastBlock,$genesisBlock,$startNonce,$incrementNonce);
 
 //Mine block
-$blockMined->mine($id);
+$blockMined->mine($id,$lastBlock['height']+1,$isTestnet);
 
 //Write block
 Tools::writeFile(Tools::GetBaseDir().'tmp'.DIRECTORY_SEPARATOR.Subprocess::$FILE_NEW_BLOCK,@serialize($blockMined));

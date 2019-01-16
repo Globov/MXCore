@@ -57,18 +57,12 @@ if (count($argv) > 1) {
     if (isset($arguments['bootstrap_node']))
         $bootstrap_node = true;
 
-    //Disable p2p
-    $p2p = true;
-    if (isset($arguments['disableP2P']))
-        $p2p = false;
-
-    //Disable p2p
+    //Check if use testnet
     $isTestNet = false;
     if (isset($arguments['testnet']))
         $isTestNet = true;
 
-
-    $gossip = new Gossip($db, $arguments['user'],$arguments['ip'],$arguments['port'], $enable_mine, $make_genesis, $bootstrap_node, $p2p, $isTestNet);
+    $gossip = new Gossip($db, $arguments['user'],$arguments['ip'],$arguments['port'], $enable_mine, $make_genesis, $bootstrap_node, $isTestNet);
     if (isset($arguments['peer-ip']) && isset($arguments['peer-port'])) {
         $gossip->_addPeer($arguments['peer-ip'],$arguments['peer-port']);
     }
