@@ -53,12 +53,8 @@ class Blockchain {
         //Get limit check block
         $limitBlock = $chaindata->GetBlockByHeight($currentBlock['height']-$limit);
 
-        //Get diff time
-        $dateDiff = date_diff(
-            date_create(date('Y-m-d H:i:s', $currentBlock['timestamp_end_miner'])),
-            date_create(date('Y-m-d H:i:s', $limitBlock['timestamp_end_miner']))
-        );
-        $diffTime = (intval($dateDiff->format('%d'))*24*60*60) + (intval($dateDiff->format('%h'))*60*60) + (intval($dateDiff->format('%i'))*60) + intval($dateDiff->format('%s'));
+        //Get diff time (timestamps are in seconds already)
+        $diffTime = $currentBlock['timestamp_end_miner'] - $limitBlock['timestamp_end_miner'];
         $avgTime = ceil($diffTime / $limit);
 
         //Default same difficulty
